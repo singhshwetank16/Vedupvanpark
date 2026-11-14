@@ -13,7 +13,7 @@ export const PrintTicketView: React.FC<PrintTicketViewProps> = ({ document: doc,
   const isTicket = 'ticket_number' in doc;
   const docNumber = isTicket ? doc.ticket_number : doc.pass_number;
   const qrPayload = doc.qr_raw_token || docNumber;
-  
+
   const amountPaise = isTicket ? doc.price_paise : (doc.amount_paise || 0);
   const amountInr = (amountPaise / 100).toFixed(2);
   const personsCount = isTicket ? doc.persons_count : doc.people_allowed;
@@ -36,7 +36,7 @@ export const PrintTicketView: React.FC<PrintTicketViewProps> = ({ document: doc,
     <div id="print-ticket-root">
       {/* 3-Inch / 80mm Full Width Thermal POS Container */}
       <div className="w-full max-w-[76mm] mx-auto text-black text-center font-sans leading-tight bg-white select-none px-1">
-        
+
         {/* Park Main Header */}
         <div className="font-black text-[20px] tracking-wide uppercase border-b-2 border-black pb-1 mb-1 leading-tight text-black">
           {config.park_settings.park_name}

@@ -77,8 +77,11 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
   const [staffList, setStaffList] = useState<StaffUser[]>([]);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+  const [showStaffModalPassword, setShowStaffModalPassword] = useState(true);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [selectedStaffForPassword, setSelectedStaffForPassword] = useState<StaffUser | null>(null);
+  const [showChangePassword, setShowChangePassword] = useState(true);
+  const [visibleTablePasswords, setVisibleTablePasswords] = useState<Record<string, boolean>>({});
   const [staffSearchQuery, setStaffSearchQuery] = useState('');
   const [staffRoleFilter, setStaffRoleFilter] = useState<string>('all');
   const [isStaffSaving, setIsStaffSaving] = useState(false);
@@ -276,22 +279,25 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
       gate_code: config.gate_code || 'GATE-01',
       enabled: true,
     });
+    setShowStaffModalPassword(true);
     setStaffFormFeedback(null);
     setIsStaffModalOpen(true);
   };
 
   const handleOpenEditStaff = (stf: StaffUser) => {
     setEditingStaffId(stf.id);
+    const existingPassword = dbService.getStaffPassword(stf.id, stf.email, stf.role);
     setStaffFormData({
       name: stf.name,
       email: stf.email,
       phone: stf.phone || '',
       role: stf.role,
-      password: '',
+      password: existingPassword,
       counter_code: stf.counter_code || 'CTR-01',
       gate_code: stf.gate_code || 'GATE-01',
       enabled: stf.enabled,
     });
+    setShowStaffModalPassword(true);
     setStaffFormFeedback(null);
     setIsStaffModalOpen(true);
   };
@@ -395,7 +401,9 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
 
   const handleOpenChangePassword = (stf: StaffUser) => {
     setSelectedStaffForPassword(stf);
-    setNewPassword('');
+    const existingPassword = dbService.getStaffPassword(stf.id, stf.email, stf.role);
+    setNewPassword(existingPassword);
+    setShowChangePassword(true);
     setPasswordFeedback(null);
     setIsPasswordModalOpen(true);
   };
@@ -2137,6 +2145,23 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                     </span>
                   </div>
 
+                  <div className="flex items-center justify-between text-xs bg-slate-100/80 px-3 py-1.5 rounded-xl border border-slate-200/70">
+                    <span className="text-slate-600 font-bold text-[11px]">Password:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-slate-800">
+                        {visibleTablePasswords[stf.id] ? dbService.getStaffPassword(stf.id, stf.email, stf.role) : '••••••••'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setVisibleTablePasswords(prev => ({ ...prev, [stf.id]: !prev[stf.id] }))}
+                        className="text-slate-400 hover:text-slate-700 cursor-pointer p-0.5"
+                        title={visibleTablePasswords[stf.id] ? "Hide password" : "Show password"}
+                      >
+                        {visibleTablePasswords[stf.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-200/60">
                     <div>
                       {stf.role === 'GATE' ? (
@@ -2208,6 +2233,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                 <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 uppercase font-bold">
                   <th className="py-3 px-3">Staff Name</th>
                   <th className="py-3 px-3">Login ID / Email</th>
+                  <th className="py-3 px-3">Password</th>
                   <th className="py-3 px-3">Phone</th>
                   <th className="py-3 px-3">Role</th>
                   <th className="py-3 px-3">Assigned Counter/Gate</th>
@@ -2218,7 +2244,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
               <tbody className="divide-y divide-slate-100">
                 {filteredStaffList.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-400">
+                    <td colSpan={8} className="py-8 text-center text-slate-400">
                       No staff records found matching filter.
                     </td>
                   </tr>
@@ -2230,6 +2256,21 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                       </td>
                       <td className="py-3 px-3 font-mono text-slate-600">
                         {stf.email}
+                      </td>
+                      <td className="py-3 px-3">
+                        <div className="inline-flex items-center gap-1.5 bg-slate-100/90 hover:bg-slate-200/80 px-2 py-0.5 rounded-lg border border-slate-200">
+                          <span className="font-mono text-xs font-bold text-slate-800">
+                            {visibleTablePasswords[stf.id] ? dbService.getStaffPassword(stf.id, stf.email, stf.role) : '••••••••'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setVisibleTablePasswords(prev => ({ ...prev, [stf.id]: !prev[stf.id] }))}
+                            className="text-slate-400 hover:text-slate-700 cursor-pointer p-0.5"
+                            title={visibleTablePasswords[stf.id] ? "Hide password" : "Show password"}
+                          >
+                            {visibleTablePasswords[stf.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
                       </td>
                       <td className="py-3 px-3 text-slate-600">
                         {stf.phone || '—'}
@@ -2937,16 +2978,35 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
               </div>
 
               <div>
-                <label className="block text-[11px] uppercase tracking-wider text-slate-500 font-bold mb-1">
-                  {editingStaffId ? 'New Password (Leave blank to keep unchanged)' : 'Login Password *'}
-                </label>
-                <input
-                  type="password"
-                  placeholder={editingStaffId ? '••••••••' : 'Enter login password'}
-                  value={staffFormData.password}
-                  onChange={e => setStaffFormData({ ...staffFormData, password: e.target.value })}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] uppercase tracking-wider text-slate-700 font-black">
+                    {editingStaffId ? 'Staff Password *' : 'Login Password *'}
+                  </label>
+                  <span className="text-[10px] text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    {editingStaffId ? 'Current Set Password' : 'Min 4 Characters'}
+                  </span>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showStaffModalPassword ? 'text' : 'password'}
+                    required
+                    placeholder="Enter login password"
+                    value={staffFormData.password}
+                    onChange={e => setStaffFormData({ ...staffFormData, password: e.target.value })}
+                    className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowStaffModalPassword(!showStaffModalPassword)}
+                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer transition"
+                    title={showStaffModalPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showStaffModalPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  {showStaffModalPassword ? 'Password is visible. You can edit it directly.' : 'Click the eye icon to view password in plain text.'}
+                </p>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">
@@ -3105,17 +3165,35 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
 
             <form onSubmit={handleSavePassword} className="space-y-4">
               <div>
-                <label className="block text-[11px] uppercase tracking-wider text-slate-500 font-bold mb-1">
-                  New Password *
-                </label>
-                <input
-                  type="password"
-                  required
-                  placeholder="Enter new password (min 4 characters)"
-                  value={newPassword}
-                  onChange={e => setNewPassword(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] uppercase tracking-wider text-slate-700 font-black">
+                    New Password *
+                  </label>
+                  <span className="text-[10px] text-amber-800 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                    Min 4 Characters
+                  </span>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showChangePassword ? 'text' : 'password'}
+                    required
+                    placeholder="Enter new password (min 4 characters)"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    className="w-full pl-3 pr-10 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowChangePassword(!showChangePassword)}
+                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-700 p-0.5 cursor-pointer transition"
+                    title={showChangePassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showChangePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Click the eye icon to view or verify password before saving.
+                </p>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2">

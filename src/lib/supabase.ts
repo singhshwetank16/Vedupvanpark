@@ -296,54 +296,8 @@ class VupDatabaseService {
   }
 
   // 4. AUTHENTICATION & LOGIN (ROLE-BASED: COUNTER, GATE, SUPER_ADMIN)
-  async loginStaff(identifier: string, password: string): Promise<{ success: boolean; staff?: AuthStaff; message?: string }> {
-    let cleanEmail = identifier.trim().toLowerCase();
-
-    // Support shorthand user IDs
-    if (cleanEmail === 'admin') cleanEmail = 'admin@vedupvan.local';
-    if (cleanEmail === 'counter' || cleanEmail === 'counter1') cleanEmail = 'counter1@vedupvan.local';
-    if (cleanEmail === 'gate' || cleanEmail === 'gate1') cleanEmail = 'gate1@vedupvan.local';
-
-    // 1. Try Supabase RPC
-    if (this.supabase) {
-      try {
-        const { data, error } = await this.supabase.rpc('staff_login', {
-          p_email: cleanEmail,
-          p_password: password,
-        });
-
-        if (!error && data && data.success) {
-          const staff: AuthStaff = data.staff;
-          this.setCurrentStaff(staff);
-          return { success: true, staff };
-        } else if (data && !data.success && data.message !== 'Staff not found') {
-          return { success: false, message: data.message || 'Invalid Credentials' };
-        }
-      } catch (err) {
-        console.warn('Supabase staff_login RPC error, trying fallback:', err);
-      }
-    }
-
-    // 2. Offline / Local Staff Directory Lookup
-    const staffList = await this.fetchStaffList();
-    const cleanUsername = cleanEmail.includes('@') ? cleanEmail.split('@')[0] : cleanEmail;
-
-    const matchedStaff = staffList.find(s => {
-      const email = s.email.toLowerCase();
-      const user = email.split('@')[0];
-      return email === cleanEmail || user === cleanEmail || user === cleanUsername || s.id === cleanEmail;
-    });
-
-    if (!matchedStaff) {
-      return { success: false, message: `Staff user "${identifier}" not found. Please check username/email.` };
-    }
-
-    if (!matchedStaff.enabled) {
-      return { success: false, message: 'This staff account has been disabled by Administrator.' };
-    }
-
-    // Passwords lookup (default presets + custom created in User Master)
-    let localPasswords: Record<string, string> = {
+  getStoredStaffPasswords(): Record<string, string> {
+    const defaultPasswords: Record<string, string> = {
       'admin@vedupvan.local': 'admin@123',
       'admin': 'admin@123',
       'counter1@vedupvan.local': 'counter@123',
@@ -354,18 +308,106 @@ class VupDatabaseService {
     try {
       const savedPass = localStorage.getItem('vup_staff_passwords');
       if (savedPass) {
-        localPasswords = { ...localPasswords, ...JSON.parse(savedPass) };
+        return { ...defaultPasswords, ...JSON.parse(savedPass) };
       }
     } catch { }
+    return defaultPasswords;
+  }
 
-    const staffEmail = matchedStaff.email.toLowerCase();
-    const staffUser = staffEmail.split('@')[0];
-    const expectedPassword = localPasswords[staffEmail]
-      || localPasswords[staffUser]
-      || localPasswords[matchedStaff.id]
-      || (matchedStaff.role === 'SUPER_ADMIN' ? 'admin@123' : matchedStaff.role === 'GATE' ? 'gate@123' : 'counter@123');
+  getStaffPassword(staffId?: string, email?: string, role?: string): string {
+    const saved = this.getStoredStaffPasswords();
+    if (staffId && saved[staffId]) return saved[staffId];
+    if (email) {
+      const cleanEmail = email.trim().toLowerCase();
+      const user = cleanEmail.split('@')[0];
+      if (saved[cleanEmail]) return saved[cleanEmail];
+      if (saved[user]) return saved[user];
+      if (saved[`${user}@vedupvan.local`]) return saved[`${user}@vedupvan.local`];
+    }
+    if (role === 'SUPER_ADMIN') return 'admin@123';
+    if (role === 'GATE') return 'gate@123';
+    return 'counter@123';
+  }
 
-    if (password === expectedPassword || password === 'admin@123') {
+  saveStaffPasswordLocally(staffId: string | undefined, email: string, password: string) {
+    if (!password || !password.trim()) return;
+    const cleanPass = password.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const user = cleanEmail.split('@')[0];
+    const store = this.getStoredStaffPasswords();
+    if (staffId) store[staffId] = cleanPass;
+    store[cleanEmail] = cleanPass;
+    store[user] = cleanPass;
+    store[`${user}@vedupvan.local`] = cleanPass;
+    try {
+      localStorage.setItem('vup_staff_passwords', JSON.stringify(store));
+    } catch (e) {
+      console.warn('Failed to save staff password locally:', e);
+    }
+  }
+
+  async loginStaff(identifier: string, password: string): Promise<{ success: boolean; staff?: AuthStaff; message?: string }> {
+    const rawId = identifier.trim();
+    if (!rawId || !password) {
+      return { success: false, message: 'Please enter your Login ID and Password.' };
+    }
+
+    const cleanEmail = rawId.toLowerCase();
+
+    // 1. Try Supabase RPC FIRST
+    if (this.supabase) {
+      try {
+        const { data, error } = await this.supabase.rpc('staff_login', {
+          p_identifier: cleanEmail,
+          p_password: password,
+        });
+
+        if (!error && data) {
+          if (data.success) {
+            const staff: AuthStaff = data.staff;
+            this.setCurrentStaff(staff);
+            // Sync password locally so offline access works with updated credentials
+            this.saveStaffPasswordLocally(staff.id, staff.email, password);
+            return { success: true, staff };
+          } else {
+            // Database explicitly rejected credentials (wrong password or account disabled)
+            // DO NOT fall through to offline acceptance!
+            return { success: false, message: data.message || 'Invalid Login ID or Password.' };
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase staff_login network error, trying fallback:', err);
+      }
+    }
+
+    // 2. Offline / Local Staff Directory Lookup (ONLY if Supabase is offline / unreachable)
+    const staffList = await this.fetchStaffList();
+    const cleanUsername = cleanEmail.includes('@') ? cleanEmail.split('@')[0] : cleanEmail;
+
+    const matchedStaff = staffList.find(s => {
+      const email = s.email.toLowerCase();
+      const user = email.split('@')[0];
+      return email === cleanEmail || 
+             user === cleanEmail || 
+             user === cleanUsername || 
+             s.id === cleanEmail || 
+             email === `${cleanUsername}@vedupvan.local` ||
+             `${user}@vedupvan.local` === cleanEmail;
+    });
+
+    if (!matchedStaff) {
+      return { success: false, message: `Staff user "${identifier}" not found. Please check username/email.` };
+    }
+
+    if (!matchedStaff.enabled) {
+      return { success: false, message: 'This staff account has been disabled by Administrator.' };
+    }
+
+    const expectedPassword = this.getStaffPassword(matchedStaff.id, matchedStaff.email, matchedStaff.role);
+
+    // STRICT CHECK: Password must match expectedPassword!
+    // No universal 'admin@123' bypass for non-admin accounts!
+    if (password === expectedPassword) {
       const authStaff: AuthStaff = {
         id: matchedStaff.id,
         name: matchedStaff.name,
@@ -533,6 +575,7 @@ class VupDatabaseService {
     enabled?: boolean;
   }): Promise<{ success: boolean; message?: string }> {
     const cleanEmail = params.email.trim().toLowerCase();
+    let savedStaffId = params.id;
     if (this.supabase) {
       try {
         const { data, error } = await this.supabase.rpc('upsert_staff', {
@@ -551,6 +594,8 @@ class VupDatabaseService {
           // Don't fail immediately, continue to sync local
         } else if (data && data.success === false) {
           return { success: false, message: data.message };
+        } else if (data && data.staff_id) {
+          savedStaffId = data.staff_id;
         }
       } catch (err: unknown) {
         console.warn('upsert_staff error, continuing with local fallback:', err);
@@ -559,8 +604,9 @@ class VupDatabaseService {
 
     try {
       const currentList = await this.fetchStaffList();
-      const existingIdx = currentList.findIndex(s => (params.id && s.id === params.id) || s.email.toLowerCase() === cleanEmail);
+      const existingIdx = currentList.findIndex(s => (savedStaffId && s.id === savedStaffId) || s.email.toLowerCase() === cleanEmail);
       if (existingIdx !== -1) {
+        savedStaffId = currentList[existingIdx].id;
         currentList[existingIdx] = {
           ...currentList[existingIdx],
           name: params.name.trim(),
@@ -573,8 +619,10 @@ class VupDatabaseService {
           updated_at: new Date().toISOString(),
         };
       } else {
+        const newId = savedStaffId || (crypto.randomUUID ? crypto.randomUUID() : `stf-${Date.now()}`);
+        savedStaffId = newId;
         const newStaff: StaffUser = {
-          id: params.id || (crypto.randomUUID ? crypto.randomUUID() : `stf-${Date.now()}`),
+          id: newId,
           name: params.name.trim(),
           email: cleanEmail,
           phone: params.phone?.trim(),
@@ -592,15 +640,7 @@ class VupDatabaseService {
 
       // Persist password in local credentials store
       if (params.password && params.password.trim()) {
-        try {
-          const passStore = JSON.parse(localStorage.getItem('vup_staff_passwords') || '{}');
-          passStore[cleanEmail] = params.password.trim();
-          passStore[cleanEmail.split('@')[0]] = params.password.trim();
-          if (params.id) passStore[params.id] = params.password.trim();
-          localStorage.setItem('vup_staff_passwords', JSON.stringify(passStore));
-        } catch (e) {
-          console.warn('Failed to save staff password locally:', e);
-        }
+        this.saveStaffPasswordLocally(savedStaffId, cleanEmail, params.password.trim());
       }
       const isUpdate = !!params.id;
       this.logAuditEvent({
