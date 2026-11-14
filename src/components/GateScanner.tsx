@@ -4,6 +4,7 @@ import { dbService } from '../lib/supabase';
 import { sounds } from '../lib/audio';
 import type { VerificationResponse, AppConfig } from '../types';
 import { Camera, CheckCircle2, XCircle, AlertTriangle, Users, Volume2, ShieldCheck, RefreshCw, Upload, Lock, QrCode, Clock } from 'lucide-react';
+import { LOGO_URL } from '../assets/logo';
 
 interface GateScannerProps {
   config: AppConfig;
@@ -370,7 +371,7 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
       <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <img
-            src="/logo.png"
+            src={LOGO_URL}
             alt="Logo"
             className="w-11 h-11 sm:w-12 sm:h-12 object-contain rounded-xl border border-emerald-100 p-0.5 bg-emerald-50/50"
           />

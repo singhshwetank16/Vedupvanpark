@@ -2,6 +2,7 @@ import React from 'react';
 import type { AppConfig, AuthStaff } from '../types';
 import { Ticket, CreditCard, Camera, BarChart3, LogOut, User } from 'lucide-react';
 import { InstallAppBanner } from './InstallAppBanner';
+import { LOGO_URL } from '../assets/logo';
 
 interface NavbarProps {
   activeTab: 'counter' | 'passes' | 'scanner' | 'logs';
@@ -30,7 +31,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Brand with Official Logo */}
         <div className="flex items-center gap-3">
           <img
-            src="/logo.png"
+            src={LOGO_URL}
             alt="Ved Upvan Park Logo"
             className="w-11 h-11 object-contain rounded-xl border border-emerald-100 shadow-sm bg-white"
           />

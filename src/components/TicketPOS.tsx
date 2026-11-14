@@ -4,6 +4,7 @@ import { dbService } from '../lib/supabase';
 import { printerService } from '../lib/printer';
 import { Users, Printer, QrCode, RefreshCw, Clock, Banknote, Smartphone, FileText, Search, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { LOGO_URL } from '../assets/logo';
 
 interface TicketPOSProps {
   config: AppConfig;
@@ -138,7 +139,7 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
         <div className="bg-white border border-emerald-100 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
           <div className="flex items-center gap-3 sm:gap-4 text-center sm:text-left">
             <img
-              src="/logo.png"
+              src={LOGO_URL}
               alt="Ved Upvan Park Logo"
               className="w-12 h-12 sm:w-16 sm:h-16 object-contain rounded-2xl border border-emerald-50 bg-emerald-50/50 p-1 shrink-0"
             />

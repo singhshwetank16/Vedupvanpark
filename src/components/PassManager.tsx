@@ -4,6 +4,7 @@ import { dbService } from '../lib/supabase';
 import { printerService } from '../lib/printer';
 import { CreditCard, Calendar, Printer, CheckCircle2, ShieldCheck, UserCheck, Banknote, QrCode, Smartphone } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { LOGO_URL } from '../assets/logo';
 
 interface PassManagerProps {
   config: AppConfig;
@@ -122,7 +123,7 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
       <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3 sm:gap-4">
           <img
-            src="/logo.png"
+            src={LOGO_URL}
             alt="Logo"
             className="w-12 h-12 sm:w-14 sm:h-14 object-contain rounded-2xl border border-emerald-100 p-1 bg-emerald-50/50 shrink-0"
           />

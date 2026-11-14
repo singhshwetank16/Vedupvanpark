@@ -4,6 +4,7 @@ import { dbService } from '../lib/supabase';
 import { NatureBackground } from './NatureBackground';
 import { Lock, User, Eye, EyeOff, Loader2, ArrowRight, AlertCircle, ShieldCheck } from 'lucide-react';
 import { InstallAppBanner } from './InstallAppBanner';
+import { LOGO_URL } from '../assets/logo';
 
 interface LoginViewProps {
   config?: AppConfig;
@@ -55,7 +56,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
         <div className="text-center mb-3 sm:mb-4">
           <div className="inline-block p-2 sm:p-2.5 bg-white/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-[0_15px_35px_rgba(0,0,0,0.5)] ring-2 ring-white/80 border border-emerald-400/30 transform hover:scale-[1.03] transition-all duration-300">
             <img
-              src="/logo.png"
+              src={LOGO_URL}
               alt="Ved Upvan Park Logo"
               className="w-20 h-20 sm:w-24 sm:h-24 object-contain mx-auto rounded-xl"
             />
