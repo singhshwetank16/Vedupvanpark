@@ -146,7 +146,7 @@ export class ThermalPrinterService {
     }
     commands.push(...encoder.encode('Please keep this slip safe until exit.\n'));
     commands.push(...encoder.encode('================================================\n'));
-    commands.push(...encoder.encode('Thank You! Have A Pleasant Visit.\n\n\n\n'));
+    commands.push(...encoder.encode('THANK YOU FOR VISITING\nVED UPVAN PARK!\n\n\n\n'));
 
     // Auto-cut
     commands.push(GS, 0x56, 0x42, 0x00);

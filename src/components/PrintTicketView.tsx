@@ -100,10 +100,13 @@ export const PrintTicketView: React.FC<PrintTicketViewProps> = ({ document: doc,
         {/* Persons Count & Pricing Highlights */}
         <div className="text-left text-black py-1">
           <div className="flex justify-between items-center">
-            <span className="text-[13px] font-black uppercase tracking-wide">PERSONS ALLOWED:</span>
-            <span className="text-[18px] font-black border-2 border-black px-2.5 py-0.5 rounded bg-white">
-              {personsCount} {personsCount > 1 ? 'PERSONS' : 'PERSON'}
-            </span>
+            <span className="text-[14px] font-black uppercase tracking-wide">PERSONS ALLOWED:</span>
+            <div className="flex flex-col items-center justify-center border-2 border-black px-3 py-1 rounded bg-white min-w-[75px] text-center">
+              <span className="text-[22px] font-black leading-none">{personsCount}</span>
+              <span className="text-[11px] font-black tracking-wider leading-none mt-1 uppercase">
+                {personsCount > 1 ? 'PERSONS' : 'PERSON'}
+              </span>
+            </div>
           </div>
 
           <div className="flex justify-between items-center border-t-2 border-black pt-1.5 mt-2">
@@ -151,9 +154,10 @@ export const PrintTicketView: React.FC<PrintTicketViewProps> = ({ document: doc,
           <p className="mt-0.5">Please keep this slip safe until exit.</p>
         </div>
 
-        {/* Receipt Footer */}
-        <div className="text-[11px] font-black text-black pt-1 pb-6 uppercase tracking-wider">
-          Thank you for visiting Ved Upvan Park!
+        {/* Receipt Footer in 2 clean lines */}
+        <div className="text-[12px] font-black text-black pt-1 pb-6 uppercase tracking-wider text-center leading-tight">
+          <div>THANK YOU FOR VISITING</div>
+          <div className="mt-1">VED UPVAN PARK!</div>
         </div>
       </div>
     </div>
