@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Ved Upvan Park</string>
+    <string name="title_activity_main">Ved Upvan Park</string>
+    <string name="package_name">com.vedupvan.ticketing</string>
+    <string name="custom_url_scheme">com.vedupvan.ticketing</string>
+</resources>

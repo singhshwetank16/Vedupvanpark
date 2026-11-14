@@ -1,0 +1,35 @@
+{
+  "appId": "com.vedupvan.ticketing",
+  "productName": "Ved Upvan Park Ticketing",
+  "copyright": "Copyright © 2026 Techbuzz Fusion & Nagar Palika Parishad Sirsaganj",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "public/**/*",
+    "package.json"
+  ],
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "public/logo.png",
+    "artifactName": "Ved_Upvan_Park_Setup_${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Ved Upvan Park"
+  }
+}
