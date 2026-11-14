@@ -458,6 +458,7 @@ class VupDatabaseService {
         counter_code: matchedStaff.counter_code || 'CTR-01',
         gate_name: matchedStaff.gate_name || `Gate ${matchedStaff.gate_code || 'GATE-01'}`,
         gate_code: matchedStaff.gate_code || 'GATE-01',
+        system_name: matchedStaff.system_name || (matchedStaff.role === 'SUPER_ADMIN' ? 'SHWETANK SYSTEM' : matchedStaff.role === 'GATE' ? 'Gate 1 Mobile Scanner' : 'Ticket Counter 1 PC'),
       };
       this.setCurrentStaff(authStaff);
 
@@ -530,6 +531,19 @@ class VupDatabaseService {
           // ignore
         }
 
+        // 1. Prioritize get_staff_directory (returns system_name column)
+        const { data: dirData, error: dirError } = await this.supabase.rpc('get_staff_directory');
+        if (!dirError && Array.isArray(dirData) && dirData.length > 0) {
+          const filtered = (dirData as StaffUser[]).filter(
+            s => (s.role as string) !== 'MANAGER' &&
+              !s.name.toLowerCase().includes('manager') &&
+              !s.email.toLowerCase().includes('manager')
+          );
+          localStorage.setItem('vup_staff_list', JSON.stringify(filtered));
+          return filtered;
+        }
+
+        // 2. Fallback to list_staff
         const { data, error } = await this.supabase.rpc('list_staff');
         if (!error && Array.isArray(data) && data.length > 0) {
           const filtered = (data as StaffUser[]).filter(
@@ -570,6 +584,7 @@ class VupDatabaseService {
         counter_code: 'CTR-01',
         gate_name: 'Main Entrance Gate',
         gate_code: 'GATE-01',
+        system_name: 'SHWETANK SYSTEM',
         enabled: true,
         created_at: '2026-11-12T15:45:24.093Z',
       },
@@ -583,6 +598,7 @@ class VupDatabaseService {
         counter_code: 'CTR-01',
         gate_name: 'Main Entrance Gate',
         gate_code: 'GATE-01',
+        system_name: 'Ticket Counter 1 PC',
         enabled: true,
         created_at: '2026-11-12T15:40:20.305Z',
       },
@@ -596,6 +612,7 @@ class VupDatabaseService {
         counter_code: 'CTR-01',
         gate_name: 'Main Entrance Gate',
         gate_code: 'GATE-01',
+        system_name: 'Gate 1 Mobile Scanner',
         enabled: true,
         created_at: '2026-11-12T15:40:20.305Z',
       },
@@ -614,12 +631,13 @@ class VupDatabaseService {
     counter_code?: string;
     gate_code?: string;
     enabled?: boolean;
+    system_name?: string;
   }): Promise<{ success: boolean; message?: string }> {
     const cleanEmail = params.email.trim().toLowerCase();
     let savedStaffId = params.id;
     if (this.supabase) {
       try {
-        const { data, error } = await this.supabase.rpc('upsert_staff', {
+        const { data, error } = await this.supabase.rpc('save_staff_member', {
           p_id: params.id || null,
           p_name: params.name.trim(),
           p_email: cleanEmail,
@@ -629,10 +647,21 @@ class VupDatabaseService {
           p_counter_code: params.counter_code || 'CTR-01',
           p_gate_code: params.gate_code || 'GATE-01',
           p_enabled: params.enabled ?? true,
+          p_system_name: params.system_name?.trim() || null,
         });
         if (error) {
-          console.error('upsert_staff RPC error:', error);
-          // Don't fail immediately, continue to sync local
+          console.warn('save_staff_member RPC failed, falling back to upsert_staff:', error);
+          await this.supabase.rpc('upsert_staff', {
+            p_id: params.id || null,
+            p_name: params.name.trim(),
+            p_email: cleanEmail,
+            p_phone: params.phone?.trim() || null,
+            p_role: params.role,
+            p_password: params.password?.trim() || null,
+            p_counter_code: params.counter_code || 'CTR-01',
+            p_gate_code: params.gate_code || 'GATE-01',
+            p_enabled: params.enabled ?? true,
+          });
         } else if (data && data.success === false) {
           return { success: false, message: data.message };
         } else if (data && data.staff_id) {
@@ -657,6 +686,7 @@ class VupDatabaseService {
           counter_code: params.counter_code || currentList[existingIdx].counter_code,
           gate_code: params.gate_code || currentList[existingIdx].gate_code,
           enabled: params.enabled ?? currentList[existingIdx].enabled,
+          system_name: params.system_name?.trim() || currentList[existingIdx].system_name,
           updated_at: new Date().toISOString(),
         };
       } else {
@@ -672,6 +702,7 @@ class VupDatabaseService {
           counter_name: 'Main Ticket Counter 1',
           gate_code: params.gate_code || 'GATE-01',
           gate_name: 'Main Entrance Gate',
+          system_name: params.system_name?.trim() || (params.role === 'GATE' ? 'Gate 1 Mobile Scanner' : 'Ticket Counter 1 PC'),
           enabled: params.enabled ?? true,
           created_at: new Date().toISOString(),
         };

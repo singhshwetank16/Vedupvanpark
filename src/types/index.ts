@@ -190,6 +190,7 @@ export interface AuthStaff {
   counter_code?: string;
   gate_name?: string;
   gate_code?: string;
+  system_name?: string;
 }
 
 export interface StaffUser {
@@ -203,6 +204,7 @@ export interface StaffUser {
   gate_name?: string;
   gate_code?: string;
   enabled: boolean;
+  system_name?: string;
   created_at: string;
   updated_at?: string;
 }

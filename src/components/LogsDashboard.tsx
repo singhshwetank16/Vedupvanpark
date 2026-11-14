@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import type { Ticket, Pass, EntryEvent, AppConfig, StaffUser, AuditLog } from '../types';
 import { dbService } from '../lib/supabase';
 import { printerService } from '../lib/printer';
-import { getSystemDeviceInfo, getCustomDeviceName, setCustomDeviceName } from '../lib/device';
+import { getSystemDeviceInfo, getAutoDetectedHardware, getCustomDeviceName, setCustomDeviceName } from '../lib/device';
 import { getTodayIstYmd, getIstDateYmd, isSameIstDay } from '../lib/dateUtils';
 import { 
   Users, 
@@ -95,6 +95,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
     password: '',
     counter_code: 'CTR-01',
     gate_code: 'GATE-01',
+    system_name: '',
     enabled: true,
   });
 
@@ -312,6 +313,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
       password: '',
       counter_code: config.counter_code || 'CTR-01',
       gate_code: config.gate_code || 'GATE-01',
+      system_name: 'Ticket Counter 1 PC',
       enabled: true,
     });
     setShowStaffModalPassword(true);
@@ -330,6 +332,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
       password: existingPassword,
       counter_code: stf.counter_code || 'CTR-01',
       gate_code: stf.gate_code || 'GATE-01',
+      system_name: stf.system_name || (stf.role === 'SUPER_ADMIN' ? 'SHWETANK SYSTEM' : stf.role === 'GATE' ? 'Gate 1 Mobile Scanner' : 'Ticket Counter 1 PC'),
       enabled: stf.enabled,
     });
     setShowStaffModalPassword(true);
@@ -359,6 +362,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
         password: staffFormData.password.trim() || undefined,
         counter_code: staffFormData.counter_code,
         gate_code: staffFormData.gate_code,
+        system_name: staffFormData.system_name.trim() || undefined,
         enabled: staffFormData.enabled,
       });
 
@@ -398,6 +402,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
       role: stf.role,
       counter_code: stf.counter_code,
       gate_code: stf.gate_code,
+      system_name: stf.system_name,
       enabled: newStatus,
     });
     const currentStaff = dbService.getCurrentStaff();
@@ -457,8 +462,12 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
         id: selectedStaffForPassword.id,
         name: selectedStaffForPassword.name,
         email: selectedStaffForPassword.email,
+        phone: selectedStaffForPassword.phone,
         role: selectedStaffForPassword.role,
         password: newPassword.trim(),
+        counter_code: selectedStaffForPassword.counter_code,
+        gate_code: selectedStaffForPassword.gate_code,
+        system_name: selectedStaffForPassword.system_name,
         enabled: selectedStaffForPassword.enabled,
       });
 
@@ -2199,6 +2208,13 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                     </div>
                   </div>
 
+                  <div className="flex items-center justify-between text-xs bg-slate-100/80 px-3 py-1.5 rounded-xl border border-slate-200/70">
+                    <span className="text-slate-600 font-bold text-[11px]">System / Terminal:</span>
+                    <div>
+                      {renderDeviceBadge(stf.system_name || (stf.role === 'SUPER_ADMIN' ? 'SHWETANK SYSTEM' : stf.role === 'GATE' ? 'Gate 1 Mobile Scanner' : 'Ticket Counter 1 PC'))}
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-200/60">
                     <div>
                       {stf.role === 'GATE' ? (
@@ -2271,6 +2287,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                   <th className="py-3 px-3">Staff Name</th>
                   <th className="py-3 px-3">Login ID / Email</th>
                   <th className="py-3 px-3">Password</th>
+                  <th className="py-3 px-3">Designated System / Terminal</th>
                   <th className="py-3 px-3">Phone</th>
                   <th className="py-3 px-3">Role</th>
                   <th className="py-3 px-3">Assigned Counter/Gate</th>
@@ -2281,7 +2298,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
               <tbody className="divide-y divide-slate-100">
                 {filteredStaffList.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-slate-400">
+                    <td colSpan={9} className="py-8 text-center text-slate-400">
                       No staff records found matching filter.
                     </td>
                   </tr>
@@ -2308,6 +2325,9 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                             {visibleTablePasswords[stf.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                           </button>
                         </div>
+                      </td>
+                      <td className="py-3 px-3 whitespace-nowrap">
+                        {renderDeviceBadge(stf.system_name || (stf.role === 'SUPER_ADMIN' ? 'SHWETANK SYSTEM' : stf.role === 'GATE' ? 'Gate 1 Mobile Scanner' : 'Ticket Counter 1 PC'))}
                       </td>
                       <td className="py-3 px-3 text-slate-600">
                         {stf.phone || '—'}
@@ -2826,13 +2846,22 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-2">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                  Auto-Detected Hardware & OS
-                </span>
-                <div className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <span>{getSystemDeviceInfo().hardwareSummary || getSystemDeviceInfo().deviceName}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                    Auto-Detected Hardware & OS
+                  </span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    getAutoDetectedHardware().isMobile 
+                      ? 'bg-sky-100 text-sky-800' 
+                      : 'bg-emerald-100 text-emerald-800'
+                  }`}>
+                    {getAutoDetectedHardware().isMobile ? '📱 Mobile Device' : '🖥️ Desktop Terminal'}
+                  </span>
+                </div>
+                <div className="text-sm font-bold text-slate-900 flex flex-wrap items-center gap-2">
+                  <span>{getAutoDetectedHardware().hardwareSummary}</span>
                   <span className="text-xs px-2 py-0.5 bg-slate-100 rounded text-slate-600 font-mono">
-                    {getSystemDeviceInfo().os} • {getSystemDeviceInfo().browser}
+                    {getAutoDetectedHardware().os} • {getAutoDetectedHardware().browser}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400">
@@ -2841,13 +2870,20 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
               </div>
 
               <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-2">
-                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                  Custom Terminal Name (Optional)
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                    Custom Terminal Nickname (Optional)
+                  </label>
+                  {dbService.getCurrentStaff()?.system_name && (
+                    <span className="text-[10px] font-bold text-slate-500 font-mono">
+                      Staff Default: {dbService.getCurrentStaff()?.system_name}
+                    </span>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="e.g. Counter 1 (Main PC) or Gate 1 Mobile"
+                    placeholder="e.g. SHWETANK SYSTEM, Counter 1 PC, Gate 1 Scanner"
                     value={customDeviceInput}
                     onChange={e => setCustomDeviceInput(e.target.value)}
                     className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -2874,6 +2910,23 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                 {deviceSaveMessage && (
                   <p className="text-[11px] text-emerald-700 font-bold">{deviceSaveMessage}</p>
                 )}
+              </div>
+            </div>
+
+            {/* Current Active Session & Assigned System Strip */}
+            <div className="bg-white px-4 py-3 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-600">Logged-in Operator:</span>
+                <span className="font-bold text-slate-900">{dbService.getCurrentStaff()?.name || 'Administrator'}</span>
+                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                  {dbService.getCurrentStaff()?.role || 'SUPER_ADMIN'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-slate-600">Active Recorded Device:</span>
+                <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+                  {getSystemDeviceInfo().deviceName}
+                </span>
               </div>
             </div>
           </div>
@@ -3035,6 +3088,49 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                     <option value="true">Active (Enabled)</option>
                     <option value="false">Disabled</option>
                   </select>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] uppercase tracking-wider text-slate-700 font-bold flex items-center gap-1.5">
+                    <Monitor className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Designated System / Terminal Name</span>
+                  </label>
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    {staffFormData.role === 'GATE' ? 'Mobile / Scanner' : 'Counter / PC'}
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  placeholder={staffFormData.role === 'GATE' ? 'Gate 1 Mobile Scanner' : staffFormData.role === 'SUPER_ADMIN' ? 'SHWETANK SYSTEM' : 'Ticket Counter 1 PC'}
+                  value={staffFormData.system_name}
+                  onChange={e => setStaffFormData({ ...staffFormData, system_name: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                  <span className="text-[10px] text-slate-400">Presets:</span>
+                  <button
+                    type="button"
+                    onClick={() => setStaffFormData({ ...staffFormData, system_name: 'SHWETANK SYSTEM' })}
+                    className="text-[10px] text-purple-700 bg-purple-50 hover:bg-purple-100 px-2 py-0.5 rounded-lg border border-purple-200 font-bold cursor-pointer"
+                  >
+                    SHWETANK SYSTEM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStaffFormData({ ...staffFormData, system_name: 'Ticket Counter 1 PC' })}
+                    className="text-[10px] text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-lg border border-emerald-200 font-bold cursor-pointer"
+                  >
+                    Ticket Counter 1 PC
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStaffFormData({ ...staffFormData, system_name: 'Gate 1 Mobile Scanner' })}
+                    className="text-[10px] text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded-lg border border-amber-200 font-bold cursor-pointer"
+                  >
+                    Gate 1 Mobile Scanner
+                  </button>
                 </div>
               </div>
 
