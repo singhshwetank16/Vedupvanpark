@@ -5,6 +5,7 @@ import { printerService } from '../lib/printer';
 import { Users, Printer, QrCode, RefreshCw, Clock, Banknote, Smartphone, FileText, Search, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { LOGO_URL } from '../assets/logo';
+import { isSameIstDay } from '../lib/dateUtils';
 
 interface TicketPOSProps {
   config: AppConfig;
@@ -30,13 +31,15 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
 
   const refreshTickets = async () => {
     try {
-      const tickets = await dbService.fetchRecentTickets(100);
-      setAllTodayTickets(tickets);
-      setRecentTickets(tickets.slice(0, 5));
+      const tickets = await dbService.fetchRecentTickets(200);
+      const todayOnly = tickets.filter(t => isSameIstDay(t.created_at));
+      setAllTodayTickets(todayOnly);
+      setRecentTickets(todayOnly.slice(0, 5));
     } catch {
       const local = dbService.getLocalTickets();
-      setAllTodayTickets(local);
-      setRecentTickets(local.slice(0, 5));
+      const todayOnly = local.filter(t => isSameIstDay(t.created_at));
+      setAllTodayTickets(todayOnly);
+      setRecentTickets(todayOnly.slice(0, 5));
     }
   };
 

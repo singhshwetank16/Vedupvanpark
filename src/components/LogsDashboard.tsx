@@ -3,6 +3,7 @@ import type { Ticket, Pass, EntryEvent, AppConfig, StaffUser, AuditLog } from '.
 import { dbService } from '../lib/supabase';
 import { printerService } from '../lib/printer';
 import { getSystemDeviceInfo, getCustomDeviceName, setCustomDeviceName } from '../lib/device';
+import { getTodayIstYmd, getIstDateYmd, isSameIstDay } from '../lib/dateUtils';
 import { 
   Users, 
   IndianRupee, 
@@ -224,8 +225,8 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
   // Active report out of 8
   const [selectedReport, setSelectedReport] = useState<ReportType>('daily-sales');
 
-  // Date Filters
-  const todayYmd = new Date().toISOString().split('T')[0];
+  // Date Filters (Indian Standard Time)
+  const todayYmd = getTodayIstYmd();
   const [startDate, setStartDate] = useState<string>(todayYmd);
   const [endDate, setEndDate] = useState<string>(todayYmd);
   const [datePreset, setDatePreset] = useState<'today' | 'yesterday' | 'week' | 'month' | 'all' | 'custom'>('today');
@@ -778,29 +779,27 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
     );
   };
 
-  // Date Preset Handler
+  // Date Preset Handler (Indian Standard Time)
   const handleDatePreset = (preset: 'today' | 'yesterday' | 'week' | 'month' | 'all') => {
     setDatePreset(preset);
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    const today = getTodayIstYmd();
 
     if (preset === 'today') {
       setStartDate(today);
       setEndDate(today);
     } else if (preset === 'yesterday') {
-      const y = new Date(now);
-      y.setDate(y.getDate() - 1);
-      const yStr = y.toISOString().split('T')[0];
+      const now = new Date();
+      now.setDate(now.getDate() - 1);
+      const yStr = getIstDateYmd(now);
       setStartDate(yStr);
       setEndDate(yStr);
     } else if (preset === 'week') {
-      const w = new Date(now);
-      w.setDate(w.getDate() - 7);
-      setStartDate(w.toISOString().split('T')[0]);
+      const now = new Date();
+      now.setDate(now.getDate() - 7);
+      setStartDate(getIstDateYmd(now));
       setEndDate(today);
     } else if (preset === 'month') {
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const [year, month] = today.split('-');
       setStartDate(`${year}-${month}-01`);
       setEndDate(today);
     } else if (preset === 'all') {
@@ -809,10 +808,10 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
     }
   };
 
-  // Check if date falls in selected range
+  // Check if date falls in selected range (Indian Standard Time)
   const isDateInRange = (isoDateStr?: string) => {
     if (!isoDateStr) return false;
-    const itemDate = isoDateStr.split('T')[0];
+    const itemDate = getIstDateYmd(isoDateStr);
     if (startDate && itemDate < startDate) return false;
     if (endDate && itemDate > endDate) return false;
     return true;
@@ -833,7 +832,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
     }>();
 
     tickets.filter(t => isDateInRange(t.created_at)).forEach(t => {
-      const d = t.created_at.split('T')[0];
+      const d = getIstDateYmd(t.created_at);
       const entry = map.get(d) || {
         date: d,
         ticketsCount: 0,
@@ -856,7 +855,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
     });
 
     passes.filter(p => isDateInRange(p.created_at)).forEach(p => {
-      const d = p.created_at.split('T')[0];
+      const d = getIstDateYmd(p.created_at);
       const entry = map.get(d) || {
         date: d,
         ticketsCount: 0,
@@ -903,7 +902,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
     };
 
     tickets.filter(t => isDateInRange(t.created_at)).forEach(t => {
-      const ym = t.created_at.slice(0, 7);
+      const ym = getIstDateYmd(t.created_at).slice(0, 7);
       const entry = map.get(ym) || {
         monthKey: ym,
         monthName: getMonthName(ym),
@@ -927,7 +926,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
     });
 
     passes.filter(p => isDateInRange(p.created_at)).forEach(p => {
-      const ym = p.created_at.slice(0, 7);
+      const ym = getIstDateYmd(p.created_at).slice(0, 7);
       const entry = map.get(ym) || {
         monthKey: ym,
         monthName: getMonthName(ym),
@@ -1219,9 +1218,9 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
     },
   };
 
-  // Top Global KPIs for today
-  const todayTickets = tickets.filter(t => t.created_at.startsWith(todayYmd));
-  const todayPasses = passes.filter(p => p.created_at.startsWith(todayYmd));
+  // Top Global KPIs for today (Indian Standard Time)
+  const todayTickets = tickets.filter(t => isSameIstDay(t.created_at, todayYmd));
+  const todayPasses = passes.filter(p => isSameIstDay(p.created_at, todayYmd));
 
   const todayRevenuePaise = todayTickets.reduce((sum, t) => sum + (t.price_paise || (t.persons_count || 1) * 1000), 0) +
     todayPasses.reduce((sum, p) => sum + (p.amount_paise || (p.pass_type === 'YEARLY' ? 310000 : 30000)), 0);
@@ -1232,11 +1231,11 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
   const todayUpiPaise = todayTickets.filter(t => t.payment_method === 'UPI').reduce((sum, t) => sum + (t.price_paise || (t.persons_count || 1) * 1000), 0) +
     todayPasses.filter(p => p.payment_method === 'UPI').reduce((sum, p) => sum + (p.amount_paise || (p.pass_type === 'YEARLY' ? 310000 : 30000)), 0);
 
-  const todaySuccessEvents = entryEvents.filter(e => e.result === 'SUCCESS' && e.scanned_at.startsWith(todayYmd));
+  const todaySuccessEvents = entryEvents.filter(e => e.result === 'SUCCESS' && isSameIstDay(e.scanned_at, todayYmd));
   const totalVisitorsAdmitted = todaySuccessEvents.reduce((sum, e) => sum + (e.persons_admitted || 1), 0);
 
-  const activeTicketsCount = tickets.filter(t => t.status === 'ACTIVE').length;
-  const usedTicketsCount = tickets.filter(t => t.status === 'USED').length;
+  const activeTicketsCount = todayTickets.filter(t => t.status === 'ACTIVE').length;
+  const usedTicketsCount = todayTickets.filter(t => t.status === 'USED').length;
 
   return (
     <div className="max-w-7xl mx-auto p-2.5 sm:p-4 space-y-4 sm:space-y-6">
@@ -1286,7 +1285,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
             <CheckCircle2 className="w-6 h-6 sm:w-7 sm:h-7" />
           </div>
           <div>
-            <div className="text-[11px] sm:text-xs text-slate-500 font-bold">Scanned & Expired</div>
+            <div className="text-[11px] sm:text-xs text-slate-500 font-bold">Scanned & Expired Today</div>
             <div className="text-2xl sm:text-3xl font-black text-slate-700 mt-0.5">{usedTicketsCount}</div>
           </div>
         </div>

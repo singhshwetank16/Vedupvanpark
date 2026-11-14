@@ -15,6 +15,7 @@ import type {
 } from '../types';
 import { generateSecureQrToken, encryptQrToken, computeSha256 } from './crypto';
 import { getSystemDeviceInfo } from './device';
+import { getTodayIstYmd, getIstDateYmd, getIstDayUtcRange, isSameIstDay } from './dateUtils';
 
 export const DEFAULT_APP_CONFIG: AppConfig = {
   park_settings: {
@@ -1094,11 +1095,11 @@ class VupDatabaseService {
     const nowIso = now.toISOString();
 
     const days = params.duration_days || plan.duration_days || 30;
-    const validFromDate = now.toISOString().split('T')[0];
+    const validFromDate = getTodayIstYmd();
     
     const validThroughDateObj = new Date(now);
     validThroughDateObj.setDate(validThroughDateObj.getDate() + days);
-    const validThroughDate = validThroughDateObj.toISOString().split('T')[0];
+    const validThroughDate = getIstDateYmd(validThroughDateObj);
 
     // Create Order
     const order: Order = {
@@ -1298,7 +1299,7 @@ class VupDatabaseService {
 
   private admitVisitorLocal(rawToken: string, sha256: string, requestId: string): VerificationResponse {
     const now = new Date();
-    const todayYmd = now.toISOString().split('T')[0];
+    const todayYmd = getTodayIstYmd();
     const currentStaff = this.getCurrentStaff();
 
     const tickets = this.getLocalTickets();
@@ -1838,8 +1839,8 @@ class VupDatabaseService {
     upiAmount: number;
     totalAmount: number;
   } {
-    const todayYmd = new Date().toISOString().split('T')[0];
-    const tickets = this.getLocalTickets().filter(t => t.created_at && t.created_at.startsWith(todayYmd));
+    const todayIstYmd = getTodayIstYmd();
+    const tickets = this.getLocalTickets().filter(t => isSameIstDay(t.created_at, todayIstYmd));
 
     let totalPersons = 0;
     let cashAmountPaise = 0;
@@ -1868,8 +1869,8 @@ class VupDatabaseService {
     totalScannedTickets: number;
     totalPersonsAdmitted: number;
   } {
-    const todayYmd = new Date().toISOString().split('T')[0];
-    const events = this.getLocalEntryEvents().filter(e => e.scanned_at && e.scanned_at.startsWith(todayYmd));
+    const todayIstYmd = getTodayIstYmd();
+    const events = this.getLocalEntryEvents().filter(e => isSameIstDay(e.scanned_at, todayIstYmd));
 
     // Only ticket scans
     const ticketEvents = events.filter(e => e.document_type === 'TICKET');
@@ -1886,13 +1887,15 @@ class VupDatabaseService {
     totalScannedTickets: number;
     totalPersonsAdmitted: number;
   }> {
-    const todayYmd = new Date().toISOString().split('T')[0];
+    const todayIstYmd = getTodayIstYmd();
+    const range = getIstDayUtcRange(todayIstYmd);
     if (this.supabase) {
       try {
         const { data, error } = await this.supabase
           .from('entry_events')
           .select('document_type, result, persons_admitted, scanned_at')
-          .gte('scanned_at', `${todayYmd}T00:00:00.000Z`);
+          .gte('scanned_at', range.startUtcIso)
+          .lte('scanned_at', range.endUtcIso);
 
         if (!error && data) {
           const ticketEvents = data.filter(e => e.document_type === 'TICKET');
@@ -1917,13 +1920,15 @@ class VupDatabaseService {
     upiAmount: number;
     totalAmount: number;
   }> {
-    const todayYmd = new Date().toISOString().split('T')[0];
+    const todayIstYmd = getTodayIstYmd();
+    const range = getIstDayUtcRange(todayIstYmd);
     if (this.supabase) {
       try {
         const { data, error } = await this.supabase
           .from('v_report_tickets')
           .select('persons_count, price_paise, payment_method, created_at')
-          .gte('created_at', `${todayYmd}T00:00:00.000Z`);
+          .gte('created_at', range.startUtcIso)
+          .lte('created_at', range.endUtcIso);
 
         if (!error && data) {
           let totalPersons = 0;
