@@ -153,17 +153,58 @@ class VupDatabaseService {
   async verifyAdminPassword(password: string): Promise<boolean> {
     if (!password || !password.trim()) return false;
     const trimmed = password.trim();
-    if (trimmed === 'admin@123' || trimmed === 'admin123') return true;
 
-    // Check against current staff
-    const current = this.getCurrentStaff();
-    if (current) {
-      const res = await this.loginStaff(current.email, trimmed);
-      if (res.success) return true;
+    const currentStaff = this.getCurrentStaff();
+    // Target administrator identifier: if current user is SUPER_ADMIN, use their email; otherwise use 'admin'
+    const targetAdminIdentifier = (currentStaff && currentStaff.role === 'SUPER_ADMIN') 
+      ? currentStaff.email 
+      : 'admin';
+
+    // 1. Verify directly against Supabase database Administrator account
+    if (this.supabase) {
+      try {
+        const { data, error } = await this.supabase.rpc('staff_login', {
+          p_identifier: targetAdminIdentifier,
+          p_password: trimmed,
+        });
+
+        if (!error && data) {
+          if (data.success && data.staff?.role === 'SUPER_ADMIN') {
+            this.saveStaffPasswordLocally(data.staff.id, data.staff.email, trimmed);
+            return true;
+          } else if (!data.success) {
+            // If targetAdminIdentifier was custom and failed, also check 'admin'
+            if (targetAdminIdentifier !== 'admin') {
+              const { data: fallbackAdminData } = await this.supabase.rpc('staff_login', {
+                p_identifier: 'admin',
+                p_password: trimmed,
+              });
+              if (fallbackAdminData && fallbackAdminData.success && fallbackAdminData.staff?.role === 'SUPER_ADMIN') {
+                this.saveStaffPasswordLocally(fallbackAdminData.staff.id, fallbackAdminData.staff.email, trimmed);
+                return true;
+              }
+            }
+            // Strict rejection: non-admin or wrong password
+            return false;
+          }
+        }
+      } catch (err) {
+        console.warn('Supabase verifyAdminPassword network error, using local fallback:', err);
+      }
     }
-    // Also try standard admin
-    const adminRes = await this.loginStaff('admin', trimmed);
-    return adminRes.success;
+
+    // 2. Offline Fallback (ONLY when Supabase is completely unreachable)
+    const staffList = await this.fetchStaffList();
+    const adminUser = staffList.find(s => 
+      (currentStaff?.role === 'SUPER_ADMIN' && s.id === currentStaff.id) ||
+      s.role === 'SUPER_ADMIN' || 
+      s.email.toLowerCase() === 'admin' || 
+      s.email.toLowerCase().startsWith('admin@')
+    );
+    if (!adminUser) return false;
+
+    const expectedAdminPassword = this.getStaffPassword(adminUser.id, adminUser.email, 'SUPER_ADMIN');
+    return trimmed === expectedAdminPassword;
   }
 
   loadConfig(): AppConfig {

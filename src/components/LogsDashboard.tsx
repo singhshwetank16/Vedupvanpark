@@ -158,18 +158,53 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
   };
 
   const handleSettingsTabClick = () => {
-    if (isSettingsUnlocked) {
-      setActiveSection('settings');
-    } else {
-      setSettingsPasswordInput('');
-      setSettingsAuthError(null);
-      setIsSettingsAuthModalOpen(true);
+    if (activeSection === 'settings' && isSettingsUnlocked) {
+      return;
+    }
+    // Always prompt for Administrator password when entering Settings from outside
+    setIsSettingsUnlocked(false);
+    setSettingsPasswordInput('');
+    setSettingsAuthError(null);
+    setShowSettingsPassword(false);
+    setIsSettingsAuthModalOpen(true);
+  };
+
+  const handleSwitchSection = (section: 'reports' | 'users' | 'audit') => {
+    // Immediately lock Settings and clear inputs whenever navigating away from Settings
+    setIsSettingsUnlocked(false);
+    setSettingsPasswordInput('');
+    setSettingsAuthError(null);
+    setShowSettingsPassword(false);
+    setActiveSection(section);
+  };
+
+  const handleCloseSettingsModal = () => {
+    setIsSettingsAuthModalOpen(false);
+    setSettingsPasswordInput('');
+    setSettingsAuthError(null);
+    if (activeSection === 'settings' && !isSettingsUnlocked) {
+      setActiveSection('reports');
     }
   };
 
+  // Auto-lock Settings whenever leaving Settings, navigating away, or switching browser tabs/minimizing
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && activeSection === 'settings') {
+        setIsSettingsUnlocked(false);
+        setActiveSection('reports');
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      setIsSettingsUnlocked(false);
+    };
+  }, [activeSection]);
+
   const handleVerifySettingsPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!settingsPasswordInput) {
+    if (!settingsPasswordInput.trim()) {
       setSettingsAuthError('Please enter administrator password.');
       return;
     }
@@ -192,7 +227,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
           details_summary: 'Administrator verified password and unlocked Settings & Rates Editor',
         });
       } else {
-        setSettingsAuthError('Incorrect Password! Only authorized administrators can access Settings.');
+        setSettingsAuthError('Incorrect Password! Only the Administrator password can unlock Settings.');
       }
     } catch {
       setSettingsAuthError('Verification error. Please try again.');
@@ -1305,7 +1340,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
           {/* 1. Reports */}
           <button
             type="button"
-            onClick={() => setActiveSection('reports')}
+            onClick={() => handleSwitchSection('reports')}
             className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer text-center ${
               activeSection === 'reports'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
@@ -1319,7 +1354,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
           {/* 2. User Master */}
           <button
             type="button"
-            onClick={() => setActiveSection('users')}
+            onClick={() => handleSwitchSection('users')}
             className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer text-center ${
               activeSection === 'users'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
@@ -1333,7 +1368,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
           {/* 3. Audit Logs */}
           <button
             type="button"
-            onClick={() => setActiveSection('audit')}
+            onClick={() => handleSwitchSection('audit')}
             className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer text-center ${
               activeSection === 'audit'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
@@ -1349,14 +1384,16 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
             type="button"
             onClick={handleSettingsTabClick}
             className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer text-center ${
-              activeSection === 'settings'
+              activeSection === 'settings' && isSettingsUnlocked
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
             <Settings className="w-4 h-4 shrink-0" />
             <span className="truncate">4. Settings</span>
-            {!isSettingsUnlocked && <Lock className="w-3 h-3 text-amber-500 shrink-0" />}
+            {(!isSettingsUnlocked || activeSection !== 'settings') && (
+              <Lock className="w-3 h-3 text-amber-500 shrink-0" />
+            )}
           </button>
         </div>
 
@@ -2546,7 +2583,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
       {/* =========================================================================
          SECTION D: SYSTEM & HARDWARE SETTINGS
          ========================================================================= */}
-      {activeSection === 'settings' && (
+      {activeSection === 'settings' && isSettingsUnlocked && (
         <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-6 no-print">
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -2558,10 +2595,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
             </div>
             <button
               type="button"
-              onClick={() => {
-                setIsSettingsUnlocked(false);
-                setActiveSection('reports');
-              }}
+              onClick={() => handleSwitchSection('reports')}
               className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer border border-slate-200"
               title="Lock Settings Area"
             >
@@ -2869,6 +2903,33 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
         </div>
       )}
 
+      {/* Locked card when Settings tab is active but not yet unlocked with password */}
+      {activeSection === 'settings' && !isSettingsUnlocked && (
+        <div className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 text-center space-y-4 shadow-sm no-print max-w-md mx-auto my-6 animate-in fade-in">
+          <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto border border-amber-200 shadow-xs">
+            <Lock className="w-8 h-8" />
+          </div>
+          <div>
+            <h3 className="text-lg font-black text-slate-900">Settings Area Locked</h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Administrator password verification is required to access system settings & rates.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setSettingsPasswordInput('');
+              setSettingsAuthError(null);
+              setIsSettingsAuthModalOpen(true);
+            }}
+            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black rounded-xl text-xs shadow-md shadow-emerald-600/20 cursor-pointer transition inline-flex items-center gap-2"
+          >
+            <Lock className="w-3.5 h-3.5" />
+            <span>Enter Admin Password</span>
+          </button>
+        </div>
+      )}
+
       {/* =========================================================================
          MODAL 1: ADD / EDIT STAFF MODAL
          ========================================================================= */}
@@ -3058,7 +3119,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
               </div>
               <button
                 type="button"
-                onClick={() => setIsSettingsAuthModalOpen(false)}
+                onClick={handleCloseSettingsModal}
                 className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
@@ -3105,7 +3166,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setIsSettingsAuthModalOpen(false)}
+                  onClick={handleCloseSettingsModal}
                   className="px-4 py-2 text-slate-600 hover:text-slate-900 text-xs font-bold"
                 >
                   Cancel
