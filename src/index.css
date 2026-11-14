@@ -22,22 +22,29 @@
    2. Report Mode (body.print-report): Standard A4 / Full-Width for PDF Export & Official Reports
    ============================================================================== */
 @media print {
+  @page {
+    margin: 0 !important;
+    size: auto;
+  }
+
   /* Default: Hide everything on the webpage */
   body * {
     visibility: hidden !important;
   }
 
   /* --------------------------------------------------------------------------
-     MODE 1: 3-INCH THERMAL POS SLIP
+     MODE 1: 3-INCH / 80MM THERMAL POS SLIP
      -------------------------------------------------------------------------- */
   body:not(.print-report) {
-    width: 76.2mm !important;
-    max-width: 76.2mm !important;
-    margin: 0 !important;
+    width: 100% !important;
+    max-width: 80mm !important;
+    margin: 0 auto !important;
     padding: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
     overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   body:not(.print-report) #print-ticket-root,
@@ -50,17 +57,19 @@
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
-    width: 76.2mm !important;
-    max-width: 76.2mm !important;
-    margin: 0 !important;
-    padding: 2mm 1mm !important;
+    width: 100% !important;
+    max-width: 80mm !important;
+    margin: 0 auto !important;
+    padding: 2mm 3mm 8mm 3mm !important;
     background: #ffffff !important;
     color: #000000 !important;
-    font-family: 'Courier New', Courier, monospace !important;
-    font-size: 11px !important;
-    line-height: 1.25 !important;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-size: 13px !important;
+    line-height: 1.3 !important;
     box-shadow: none !important;
     border: none !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   body:not(.print-report) #print-report-root {

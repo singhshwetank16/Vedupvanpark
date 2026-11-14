@@ -1,11 +1,11 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import type { 
-  AppConfig, 
-  Ticket, 
-  Pass, 
-  Order, 
-  Plan, 
-  EntryEvent, 
+import type {
+  AppConfig,
+  Ticket,
+  Pass,
+  Order,
+  Plan,
+  EntryEvent,
   VerificationResponse,
   PaymentMethod,
   EntryResult,
@@ -116,7 +116,7 @@ class VupDatabaseService {
       if (saved) {
         return { ...DEFAULT_PRICING_RATES, ...JSON.parse(saved) };
       }
-    } catch {}
+    } catch { }
     return DEFAULT_PRICING_RATES;
   }
 
@@ -298,7 +298,7 @@ class VupDatabaseService {
   // 4. AUTHENTICATION & LOGIN (ROLE-BASED: COUNTER, GATE, SUPER_ADMIN)
   async loginStaff(identifier: string, password: string): Promise<{ success: boolean; staff?: AuthStaff; message?: string }> {
     let cleanEmail = identifier.trim().toLowerCase();
-    
+
     // Support shorthand user IDs
     if (cleanEmail === 'admin') cleanEmail = 'admin@vedupvan.local';
     if (cleanEmail === 'counter' || cleanEmail === 'counter1') cleanEmail = 'counter1@vedupvan.local';
@@ -356,11 +356,11 @@ class VupDatabaseService {
       if (savedPass) {
         localPasswords = { ...localPasswords, ...JSON.parse(savedPass) };
       }
-    } catch {}
+    } catch { }
 
     const staffEmail = matchedStaff.email.toLowerCase();
     const staffUser = staffEmail.split('@')[0];
-    const expectedPassword = localPasswords[staffEmail] 
+    const expectedPassword = localPasswords[staffEmail]
       || localPasswords[staffUser]
       || localPasswords[matchedStaff.id]
       || (matchedStaff.role === 'SUPER_ADMIN' ? 'admin@123' : matchedStaff.role === 'GATE' ? 'gate@123' : 'counter@123');
@@ -451,8 +451,8 @@ class VupDatabaseService {
         if (!error && Array.isArray(data) && data.length > 0) {
           const filtered = (data as StaffUser[]).filter(
             s => (s.role as string) !== 'MANAGER' &&
-                 !s.name.toLowerCase().includes('manager') &&
-                 !s.email.toLowerCase().includes('manager')
+              !s.name.toLowerCase().includes('manager') &&
+              !s.email.toLowerCase().includes('manager')
           );
           localStorage.setItem('vup_staff_list', JSON.stringify(filtered));
           return filtered;
@@ -467,8 +467,8 @@ class VupDatabaseService {
         const parsed: StaffUser[] = JSON.parse(saved);
         const filtered = parsed.filter(
           s => (s.role as string) !== 'MANAGER' &&
-               !s.name.toLowerCase().includes('manager') &&
-               !s.email.toLowerCase().includes('manager')
+            !s.name.toLowerCase().includes('manager') &&
+            !s.email.toLowerCase().includes('manager')
         );
         localStorage.setItem('vup_staff_list', JSON.stringify(filtered));
         return filtered;
@@ -745,7 +745,7 @@ class VupDatabaseService {
           for (const item of parsed) {
             let after: any = {};
             if (typeof item.after_json === 'string') {
-              try { after = JSON.parse(item.after_json); } catch {}
+              try { after = JSON.parse(item.after_json); } catch { }
             } else if (typeof item.after_json === 'object' && item.after_json !== null) {
               after = item.after_json;
             }
@@ -918,7 +918,7 @@ class VupDatabaseService {
         p_device_type: devInfo.deviceType,
         p_details_summary: newLog.details_summary,
         p_details_json: after_json || {},
-      }).then(() => {}, () => {});
+      }).then(() => { }, () => { });
     }
   }
 
@@ -1057,7 +1057,7 @@ class VupDatabaseService {
     price_paise?: number;
   }): Promise<Pass> {
     const plan = DEFAULT_PLANS.find(p => p.plan_type === params.pass_type) || DEFAULT_PLANS[1];
-    
+
     // Calculate amount based on dynamic pricing rates:
     let amountPaise = params.price_paise;
     if (amountPaise === undefined || amountPaise === null) {
@@ -1084,7 +1084,7 @@ class VupDatabaseService {
 
     const days = params.duration_days || plan.duration_days || 30;
     const validFromDate = getTodayIstYmd();
-    
+
     const validThroughDateObj = new Date(now);
     validThroughDateObj.setDate(validThroughDateObj.getDate() + days);
     const validThroughDate = getIstDateYmd(validThroughDateObj);
@@ -1108,7 +1108,7 @@ class VupDatabaseService {
     const rawQrToken = generateSecureQrToken(params.pass_type, passNumber);
     const { ciphertext, nonce, tag, sha256 } = await encryptQrToken(rawQrToken);
 
-    const planTitle = params.pass_type === 'MONTHLY' 
+    const planTitle = params.pass_type === 'MONTHLY'
       ? `Monthly Pass (${days === 30 ? '1 Month' : days === 60 ? '2 Months' : '3 Months'})`
       : plan.name;
 
@@ -1290,10 +1290,10 @@ class VupDatabaseService {
     }
 
     // 1. Check Tickets in ANY order (ticket 1, 2, 5, etc.)
-    const ticketIdx = tickets.findIndex(t => 
-      t.qr_token_sha256 === sha256 || 
-      t.qr_raw_token === rawToken || 
-      t.ticket_number === rawToken || 
+    const ticketIdx = tickets.findIndex(t =>
+      t.qr_token_sha256 === sha256 ||
+      t.qr_raw_token === rawToken ||
+      t.ticket_number === rawToken ||
       (extractedDocNum && t.ticket_number === extractedDocNum)
     );
     if (ticketIdx !== -1) {
@@ -1413,10 +1413,10 @@ class VupDatabaseService {
     }
 
     // 2. Check Passes in ANY order
-    const passIdx = passes.findIndex(p => 
-      p.qr_token_sha256 === sha256 || 
-      p.qr_raw_token === rawToken || 
-      p.pass_number === rawToken || 
+    const passIdx = passes.findIndex(p =>
+      p.qr_token_sha256 === sha256 ||
+      p.qr_raw_token === rawToken ||
+      p.pass_number === rawToken ||
       (extractedDocNum && p.pass_number === extractedDocNum)
     );
     if (passIdx !== -1) {

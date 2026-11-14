@@ -34,59 +34,60 @@ export const PrintTicketView: React.FC<PrintTicketViewProps> = ({ document: doc,
 
   return (
     <div id="print-ticket-root">
-      {/* 76.20mm (3-Inch) Thermal Paper Container */}
-      <div className="w-[72mm] mx-auto text-black text-center font-mono text-xs leading-tight bg-white">
-        {/* Fixed Header */}
-        <div className="font-extrabold text-[15px] tracking-wide uppercase border-b-2 border-black pb-1 mb-1 leading-tight">
+      {/* 3-Inch / 80mm Full Width Thermal POS Container */}
+      <div className="w-full max-w-[76mm] mx-auto text-black text-center font-sans leading-tight bg-white select-none px-1">
+        
+        {/* Park Main Header */}
+        <div className="font-black text-[20px] tracking-wide uppercase border-b-2 border-black pb-1 mb-1 leading-tight text-black">
           {config.park_settings.park_name}
         </div>
-        <div className="font-bold text-[11px] mb-0.5">
+        <div className="font-extrabold text-[12px] uppercase text-black mb-0.5">
           {config.park_settings.organization_name}
         </div>
-        <div className="text-[10px] text-gray-800 leading-tight mb-2">
+        <div className="text-[11px] font-semibold text-black leading-snug mb-2">
           {config.park_settings.address}
         </div>
 
-        {/* Document Type Banner */}
-        <div className="border-t border-b border-dashed border-black py-1 my-1.5 font-bold uppercase text-[12px] bg-gray-100">
+        {/* High-Contrast Document Type Banner */}
+        <div className="border-y-2 border-black py-1 my-1.5 font-black uppercase text-[13px] tracking-wider bg-black text-white">
           {isTicket && 'SINGLE ENTRY TICKET'}
           {!isTicket && doc.pass_type === 'MONTHLY' && 'MONTHLY VISITOR PASS'}
           {!isTicket && doc.pass_type === 'YEARLY' && 'YEARLY VISITOR PASS'}
           {!isTicket && doc.pass_type === 'FAMILY' && 'FAMILY SUBSCRIPTION PASS'}
         </div>
 
-        {/* Dynamic Details */}
-        <div className="text-left text-[11px] space-y-0.5 py-1">
-          <div className="flex justify-between font-bold">
-            <span>DOC NO:</span>
-            <span>{docNumber}</span>
+        {/* Dynamic Key-Value Details */}
+        <div className="text-left text-[12px] space-y-1 py-1 text-black font-semibold">
+          <div className="flex justify-between items-center">
+            <span className="font-bold">DOC NO:</span>
+            <span className="font-mono font-black text-[13px] tracking-wider">{docNumber}</span>
           </div>
-          <div className="flex justify-between">
-            <span>DATE:</span>
-            <span>{formattedDate}</span>
+          <div className="flex justify-between items-center">
+            <span className="font-bold">DATE:</span>
+            <span className="font-black">{formattedDate}</span>
           </div>
-          <div className="flex justify-between">
-            <span>TIME:</span>
-            <span>{formattedTime} (IST)</span>
+          <div className="flex justify-between items-center">
+            <span className="font-bold">TIME:</span>
+            <span className="font-black">{formattedTime} (IST)</span>
           </div>
-          <div className="flex justify-between">
-            <span>COUNTER:</span>
-            <span>{config.counter_name}</span>
+          <div className="flex justify-between items-center">
+            <span className="font-bold">COUNTER:</span>
+            <span className="font-black">{config.counter_name}</span>
           </div>
 
           {!isTicket && (
             <>
-              <div className="flex justify-between font-bold pt-1">
+              <div className="flex justify-between items-center font-black pt-1 border-t border-black">
                 <span>HOLDER:</span>
                 <span>{doc.holder_name}</span>
               </div>
               {doc.holder_phone && (
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span>PHONE:</span>
                   <span>{doc.holder_phone}</span>
                 </div>
               )}
-              <div className="flex justify-between text-[10px] text-gray-800">
+              <div className="flex justify-between items-center text-[11px] font-bold">
                 <span>VALIDITY:</span>
                 <span>{doc.valid_from} TO {doc.valid_through}</span>
               </div>
@@ -94,64 +95,64 @@ export const PrintTicketView: React.FC<PrintTicketViewProps> = ({ document: doc,
           )}
         </div>
 
-        <div className="border-t border-dashed border-black my-1"></div>
+        <div className="border-t-2 border-black my-1.5"></div>
 
-        {/* Persons and Pricing */}
-        <div className="text-left text-[11px] space-y-0.5 py-1">
-          <div className="flex justify-between items-center text-sm font-black">
-            <span>PERSONS ALLOWED:</span>
-            <span className="text-base border border-black px-1.5 py-0.5 rounded">
+        {/* Persons Count & Pricing Highlights */}
+        <div className="text-left text-black py-1">
+          <div className="flex justify-between items-center">
+            <span className="text-[13px] font-black uppercase tracking-wide">PERSONS ALLOWED:</span>
+            <span className="text-[18px] font-black border-2 border-black px-2.5 py-0.5 rounded bg-white">
               {personsCount} {personsCount > 1 ? 'PERSONS' : 'PERSON'}
             </span>
           </div>
 
-          <div className="flex justify-between items-center text-sm font-black border-t border-dotted border-black pt-1 mt-1">
-            <span>TOTAL AMOUNT:</span>
-            <span className="text-base">₹{amountInr}</span>
+          <div className="flex justify-between items-center border-t-2 border-black pt-1.5 mt-2">
+            <span className="text-[14px] font-black uppercase tracking-wide">TOTAL AMOUNT:</span>
+            <span className="text-[22px] font-black tracking-tight">₹{amountInr}</span>
           </div>
 
-          <div className="flex justify-between text-[10px]">
+          <div className="flex justify-between items-center text-[12px] font-bold pt-0.5">
             <span>PAYMENT:</span>
-            <span className="font-bold">{doc.payment_method || 'CASH'} (PAID)</span>
+            <span className="font-black uppercase">{doc.payment_method || 'CASH'} (PAID)</span>
           </div>
         </div>
 
-        <div className="border-t border-dashed border-black my-1.5"></div>
+        <div className="border-t-2 border-black my-2"></div>
 
-        {/* 40mm QR Code */}
+        {/* Crisp High-Contrast QR Code */}
         <div className="flex flex-col items-center justify-center my-2">
-          <div className="p-1.5 bg-white border-2 border-black rounded inline-block">
+          <div className="p-2 bg-white border-2 border-black rounded inline-block">
             <QRCodeSVG
               value={qrPayload}
-              size={135} // ~40mm
+              size={155} // Large, sharp scan
               level="M"
               includeMargin={false}
             />
           </div>
-          <div className="font-mono font-bold text-[10px] tracking-wider mt-1">
+          <div className="font-mono font-black text-[12px] tracking-widest mt-1.5 text-black">
             {docNumber}
           </div>
         </div>
 
-        {/* Expiration Rules Notice */}
-        <div className="border-t-2 border-black pt-1 mt-1 text-[9px] text-gray-900 font-bold leading-tight">
-          <p className="uppercase text-red-600">⚠ IMPORTANT NOTICE ⚠</p>
+        {/* Rules & Warnings */}
+        <div className="border-y-2 border-black py-1.5 my-2 text-[10.5px] text-black font-extrabold leading-normal">
+          <p className="uppercase tracking-widest text-[11px] font-black mb-0.5">*** IMPORTANT NOTICE ***</p>
           {isTicket ? (
             <>
-              <p>* THIS TICKET EXPIRES IMMEDIATELY UPON GATE SCAN *</p>
-              <p>* Single Entry Only • Non-Refundable *</p>
+              <p>• THIS TICKET EXPIRES IMMEDIATELY UPON GATE SCAN •</p>
+              <p>• Single Entry Only • Non-Refundable •</p>
             </>
           ) : (
             <>
-              <p>* PASS VALID FOR REGULAR ENTRY WITH 60-MIN COOLDOWN *</p>
-              <p>* Valid until {doc.valid_through} • Non-Transferable *</p>
+              <p>• PASS VALID FOR REGULAR ENTRY WITH 60-MIN COOLDOWN •</p>
+              <p>• Valid until {doc.valid_through} • Non-Transferable •</p>
             </>
           )}
-          <p>Please keep this slip safe until exit.</p>
+          <p className="mt-0.5">Please keep this slip safe until exit.</p>
         </div>
 
-        <div className="border-t border-black my-1"></div>
-        <div className="text-[10px] font-bold pb-4">
+        {/* Receipt Footer */}
+        <div className="text-[11px] font-black text-black pt-1 pb-6 uppercase tracking-wider">
           Thank you for visiting Ved Upvan Park!
         </div>
       </div>
