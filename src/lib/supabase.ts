@@ -15,7 +15,7 @@ import type {
 } from '../types';
 import { generateSecureQrToken, encryptQrToken, computeSha256 } from './crypto';
 import { getSystemDeviceInfo } from './device';
-import { getTodayIstYmd, getIstDateYmd, getIstDayUtcRange, isSameIstDay } from './dateUtils';
+import { getTodayIstYmd, getIstDateYmd, isSameIstDay } from './dateUtils';
 
 export const DEFAULT_APP_CONFIG: AppConfig = {
   park_settings: {
@@ -630,7 +630,6 @@ class VupDatabaseService {
   async deleteStaff(id: string): Promise<{ success: boolean; message?: string }> {
     if (this.supabase) {
       try {
-        await this.supabase.from('staff').delete().eq('id', id);
         const { data, error } = await this.supabase.rpc('delete_staff', { p_id: id });
         if (error) {
           console.warn('delete_staff RPC error:', error);
@@ -909,20 +908,17 @@ class VupDatabaseService {
     }
 
     if (this.supabase) {
-      this.supabase.from('audit_logs').insert([{
-        id: crypto.randomUUID ? crypto.randomUUID() : undefined,
-        action: newLog.action,
-        entity_type: newLog.entity_type,
-        entity_id: newLog.entity_id,
-        actor_name: newLog.actor_name,
-        actor_email: newLog.actor_email,
-        after_json: {
-          ...((typeof after_json === 'object' && after_json !== null) ? after_json : {}),
-          device_name: devInfo.deviceName,
-          device_type: devInfo.deviceType,
-          details_summary: newLog.details_summary,
-        },
-      }]).then(() => {}, () => {});
+      this.supabase.rpc('log_audit_event', {
+        p_action: newLog.action,
+        p_entity_type: newLog.entity_type,
+        p_entity_id: newLog.entity_id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(newLog.entity_id) ? newLog.entity_id : null,
+        p_actor_name: newLog.actor_name,
+        p_actor_email: newLog.actor_email,
+        p_device_name: devInfo.deviceName,
+        p_device_type: devInfo.deviceType,
+        p_details_summary: newLog.details_summary,
+        p_details_json: after_json || {},
+      }).then(() => {}, () => {});
     }
   }
 
@@ -988,49 +984,41 @@ class VupDatabaseService {
       device_name: getSystemDeviceInfo().deviceName,
     };
 
-    // Try saving to Supabase if connected
+    // Try saving to Supabase via secure server-side RPC if connected
     if (this.supabase) {
       try {
-        const isValidUuid = (val?: string) => !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-        const orderId = isValidUuid(order.id) ? order.id : undefined;
-        const ticketId = isValidUuid(newTicket.id) ? newTicket.id : undefined;
+        const { data, error } = await this.supabase.rpc('issue_ticket', {
+          p_plan_id: plan.id,
+          p_persons_count: params.persons_count,
+          p_payment_method: params.payment_method,
+          p_purchaser_name: params.purchaser_name || null,
+          p_purchaser_phone: params.purchaser_phone || null,
+          p_operator_id: this.getCurrentStaff()?.id || null,
+          p_counter_code: this.config.counter_code,
+          p_qr_sha256: sha256,
+          p_qr_ciphertext: ciphertext,
+          p_qr_nonce: nonce,
+          p_qr_tag: tag,
+          p_device_name: getSystemDeviceInfo().deviceName,
+        });
 
-        await this.supabase.from('orders').insert([{
-          id: orderId,
-          order_reference: order.order_reference,
-          item_type: order.item_type,
-          purchaser_name: order.purchaser_name,
-          purchaser_phone: order.purchaser_phone,
-          persons_count: order.persons_count,
-          amount_paise: order.amount_paise,
-          payment_method: order.payment_method,
-          payment_status: 'PAID',
-        }]);
-
-        const { error: tktErr } = await this.supabase.from('tickets').insert([{
-          id: ticketId,
-          ticket_number: newTicket.ticket_number,
-          order_id: orderId,
-          plan_id: newTicket.plan_id,
-          persons_count: newTicket.persons_count,
-          price_paise: newTicket.price_paise,
-          qr_token_sha256: newTicket.qr_token_sha256,
-          qr_token_ciphertext: newTicket.qr_token_ciphertext,
-          qr_token_nonce: newTicket.qr_token_nonce,
-          qr_token_tag: newTicket.qr_token_tag,
-          status: 'ACTIVE',
-          issued_at: newTicket.issued_at,
-          expires_at: newTicket.expires_at,
-          reprint_count: 0,
-        }]);
-
-        if (tktErr) {
-          console.error('Supabase ticket insert error:', tktErr);
+        if (!error && data && data.success && data.ticket) {
+          const sTkt = data.ticket;
+          newTicket.id = sTkt.id;
+          newTicket.ticket_number = sTkt.ticket_number;
+          newTicket.order_id = sTkt.order_id;
+          newTicket.order_reference = sTkt.order_reference;
+          newTicket.price_paise = sTkt.price_paise;
+          newTicket.status = sTkt.status;
+          order.id = sTkt.order_id;
+          order.order_reference = sTkt.order_reference;
+          order.amount_paise = sTkt.price_paise;
+          console.log('✅ Ticket secured & issued by Supabase Server RPC:', newTicket.ticket_number);
         } else {
-          console.log('✅ Ticket successfully synced to Supabase database:', newTicket.ticket_number);
+          console.warn('Supabase issue_ticket error:', error || data?.message);
         }
       } catch (err) {
-        console.warn('Supabase insert failed, maintaining local state:', err);
+        console.warn('Supabase RPC call failed, maintaining local state:', err);
       }
     }
 
@@ -1152,48 +1140,37 @@ class VupDatabaseService {
 
     if (this.supabase) {
       try {
-        const isValidUuid = (val?: string) => !!val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
-        const orderId = isValidUuid(order.id) ? order.id : undefined;
-        const passId = isValidUuid(newPass.id) ? newPass.id : undefined;
+        const { data, error } = await this.supabase.rpc('issue_pass', {
+          p_pass_type: params.pass_type,
+          p_holder_name: params.holder_name,
+          p_holder_phone: params.holder_phone || null,
+          p_people_allowed: params.people_allowed,
+          p_payment_method: params.payment_method,
+          p_valid_from: validFromDate,
+          p_valid_through: validThroughDate,
+          p_qr_sha256: sha256,
+          p_qr_ciphertext: ciphertext,
+          p_qr_nonce: nonce,
+          p_qr_tag: tag,
+          p_members: [],
+          p_operator_id: this.getCurrentStaff()?.id || null,
+          p_counter_code: this.config.counter_code,
+          p_device_name: getSystemDeviceInfo().deviceName,
+        });
 
-        await this.supabase.from('orders').insert([{
-          id: orderId,
-          order_reference: order.order_reference,
-          item_type: order.item_type,
-          purchaser_name: order.purchaser_name,
-          purchaser_phone: order.purchaser_phone,
-          persons_count: order.persons_count,
-          amount_paise: order.amount_paise,
-          payment_method: order.payment_method,
-          payment_status: 'PAID',
-        }]);
-
-        const { error: pssErr } = await this.supabase.from('passes').insert([{
-          id: passId,
-          pass_number: newPass.pass_number,
-          order_id: orderId,
-          plan_id: newPass.plan_id,
-          pass_type: newPass.pass_type,
-          holder_name: newPass.holder_name,
-          holder_phone: newPass.holder_phone,
-          people_allowed: newPass.people_allowed,
-          valid_from: newPass.valid_from,
-          valid_through: newPass.valid_through,
-          qr_token_sha256: newPass.qr_token_sha256,
-          qr_token_ciphertext: newPass.qr_token_ciphertext,
-          qr_token_nonce: newPass.qr_token_nonce,
-          qr_token_tag: newPass.qr_token_tag,
-          status: 'ACTIVE',
-          reprint_count: 0,
-        }]);
-
-        if (pssErr) {
-          console.error('Supabase pass insert error:', pssErr);
+        if (!error && data && data.success && data.pass) {
+          const sPass = data.pass;
+          newPass.id = sPass.id;
+          newPass.pass_number = sPass.pass_number;
+          newPass.order_id = sPass.order_id;
+          order.id = sPass.order_id;
+          order.amount_paise = sPass.price_paise;
+          console.log('✅ Pass secured & issued by Supabase Server RPC:', newPass.pass_number);
         } else {
-          console.log('✅ Pass successfully synced to Supabase database:', newPass.pass_number);
+          console.warn('Supabase issue_pass error:', error || data?.message);
         }
       } catch (err) {
-        console.warn('Supabase insert pass failed, maintaining local state:', err);
+        console.warn('Supabase issue_pass RPC failed, maintaining local state:', err);
       }
     }
 
@@ -1724,34 +1701,13 @@ class VupDatabaseService {
   async syncAllWithCloud(): Promise<{ ticketsCount: number; passesCount: number }> {
     if (!this.supabase) return { ticketsCount: 0, passesCount: 0 };
     try {
-      const [tktRes, pssRes, evRes] = await Promise.all([
-        this.supabase.from('tickets').select('id', { count: 'exact', head: true }),
-        this.supabase.from('passes').select('id', { count: 'exact', head: true }),
-        this.supabase.from('entry_events').select('id', { count: 'exact', head: true }),
-      ]);
-
-      const tktCount = tktRes.count || 0;
-      const pssCount = pssRes.count || 0;
-      const evCount = evRes.count || 0;
-
-      if (tktCount === 0) {
-        localStorage.removeItem('vup_tickets');
-        localStorage.removeItem('vup_orders');
-        const ymd = this.getIstYmd();
-        localStorage.removeItem(`vup_seq_TICKET_${ymd}`);
-        localStorage.removeItem(`vup_seq_ORDER_${ymd}`);
+      const { data, error } = await this.supabase.rpc('get_reporting_data', { p_limit: 1000 });
+      if (!error && data) {
+        const tktCount = (data.tickets || []).length;
+        const pssCount = (data.passes || []).length;
+        return { ticketsCount: tktCount, passesCount: pssCount };
       }
-      if (pssCount === 0) {
-        localStorage.removeItem('vup_passes');
-        const ymd = this.getIstYmd();
-        localStorage.removeItem(`vup_seq_MONTHLY_${ymd}`);
-        localStorage.removeItem(`vup_seq_FAMILY_${ymd}`);
-      }
-      if (evCount === 0) {
-        localStorage.removeItem('vup_entry_events');
-      }
-
-      return { ticketsCount: tktCount, passesCount: pssCount };
+      return { ticketsCount: 0, passesCount: 0 };
     } catch (e) {
       console.warn('syncAllWithCloud warning:', e);
       return { ticketsCount: 0, passesCount: 0 };
@@ -1766,23 +1722,18 @@ class VupDatabaseService {
 
     if (this.supabase) {
       try {
-        const [tktRes, pssRes, evRes] = await Promise.all([
-          this.supabase.from('v_report_tickets').select('*').order('created_at', { ascending: false }).limit(2000),
-          this.supabase.from('v_report_passes').select('*').order('created_at', { ascending: false }).limit(1000),
-          this.supabase.from('v_report_entry_events').select('*').order('scanned_at', { ascending: false }).limit(2000),
-        ]);
+        const { data, error } = await this.supabase.rpc('get_reporting_data', { p_limit: 2000 });
 
-        if (!tktRes.error) {
-          cloudTickets = (tktRes.data || []) as Ticket[];
+        if (!error && data) {
+          cloudTickets = (data.tickets || []) as Ticket[];
+          cloudPasses = (data.passes || []) as Pass[];
+          cloudEvents = (data.events || []) as EntryEvent[];
+
           localStorage.setItem('vup_tickets', JSON.stringify(cloudTickets.slice(0, 500)));
-        }
-        if (!pssRes.error) {
-          cloudPasses = (pssRes.data || []) as Pass[];
           localStorage.setItem('vup_passes', JSON.stringify(cloudPasses.slice(0, 500)));
-        }
-        if (!evRes.error) {
-          cloudEvents = (evRes.data || []) as EntryEvent[];
           localStorage.setItem('vup_entry_events', JSON.stringify(cloudEvents.slice(0, 500)));
+        } else if (error) {
+          console.warn('RPC get_reporting_data error:', error);
         }
       } catch (err) {
         console.warn('Error fetching cloud reporting data, using local fallback:', err);
@@ -1888,26 +1839,20 @@ class VupDatabaseService {
     totalPersonsAdmitted: number;
   }> {
     const todayIstYmd = getTodayIstYmd();
-    const range = getIstDayUtcRange(todayIstYmd);
     if (this.supabase) {
       try {
-        const { data, error } = await this.supabase
-          .from('entry_events')
-          .select('document_type, result, persons_admitted, scanned_at')
-          .gte('scanned_at', range.startUtcIso)
-          .lte('scanned_at', range.endUtcIso);
+        const { data, error } = await this.supabase.rpc('get_dashboard_metrics', {
+          p_target_date: todayIstYmd,
+        });
 
-        if (!error && data) {
-          const ticketEvents = data.filter(e => e.document_type === 'TICKET');
-          const successfulEvents = ticketEvents.filter(e => e.result === 'SUCCESS');
-          const totalPersons = successfulEvents.reduce((sum, e) => sum + (e.persons_admitted || 1), 0);
+        if (!error && data && data.success) {
           return {
-            totalScannedTickets: ticketEvents.length,
-            totalPersonsAdmitted: totalPersons,
+            totalScannedTickets: data.scanned_tickets || 0,
+            totalPersonsAdmitted: data.visitors_admitted || 0,
           };
         }
       } catch (err) {
-        console.warn('fetchTodayScanSummary failed, using local:', err);
+        console.warn('fetchTodayScanSummary RPC failed, using local:', err);
       }
     }
     return this.getTodayScanSummary();
@@ -1921,41 +1866,26 @@ class VupDatabaseService {
     totalAmount: number;
   }> {
     const todayIstYmd = getTodayIstYmd();
-    const range = getIstDayUtcRange(todayIstYmd);
     if (this.supabase) {
       try {
-        const { data, error } = await this.supabase
-          .from('v_report_tickets')
-          .select('persons_count, price_paise, payment_method, created_at')
-          .gte('created_at', range.startUtcIso)
-          .lte('created_at', range.endUtcIso);
+        const { data, error } = await this.supabase.rpc('get_dashboard_metrics', {
+          p_target_date: todayIstYmd,
+        });
 
-        if (!error && data) {
-          let totalPersons = 0;
-          let cashAmountPaise = 0;
-          let upiAmountPaise = 0;
-
-          for (const t of data) {
-            const cnt = t.persons_count || 1;
-            totalPersons += cnt;
-            const amt = t.price_paise || cnt * 1000;
-            if (t.payment_method === 'UPI') {
-              upiAmountPaise += amt;
-            } else {
-              cashAmountPaise += amt;
-            }
-          }
-
+        if (!error && data && data.success) {
+          const cashAmount = (data.cash_paise || 0) / 100;
+          const upiAmount = (data.upi_paise || 0) / 100;
+          const totalAmount = (data.total_collection_paise || 0) / 100;
           return {
-            totalTickets: data.length,
-            totalPersons,
-            cashAmount: cashAmountPaise / 100,
-            upiAmount: upiAmountPaise / 100,
-            totalAmount: (cashAmountPaise + upiAmountPaise) / 100,
+            totalTickets: data.tickets_issued || 0,
+            totalPersons: data.total_visitors || 0,
+            cashAmount,
+            upiAmount,
+            totalAmount,
           };
         }
       } catch (err) {
-        console.warn('fetchTodayTicketSummary failed, using local:', err);
+        console.warn('fetchTodayTicketSummary RPC failed, using local:', err);
       }
     }
     return this.getTodayTicketSummary();
