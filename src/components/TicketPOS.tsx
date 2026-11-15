@@ -138,39 +138,39 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
       {/* Left Column: POS Generation */}
       <div className="lg:col-span-8 flex flex-col h-full space-y-3">
         {/* Compact Header Banner with Official Logo */}
-        <div className="bg-gradient-to-br from-white via-white to-emerald-50/50 border border-white/60 rounded-2xl px-4 py-2.5 sm:py-3 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex flex-col sm:flex-row items-center justify-between gap-2.5 relative overflow-hidden group shrink-0">
-          <div className="flex items-center gap-3 text-center sm:text-left relative z-10">
+        <div className="bg-gradient-to-br from-white via-white to-emerald-50/50 border border-white/60 rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 relative overflow-hidden group shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 text-left relative z-10 min-w-0">
             <div className="relative shrink-0">
               <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl blur-xs opacity-75 group-hover:opacity-100 transition duration-300" />
               <img
                 src={LOGO_URL}
                 alt="Ved Upvan Park Logo"
-                className="relative w-10 h-10 object-contain rounded-xl border border-white/80 bg-white p-0.5 shadow-xs shrink-0"
+                className="relative w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-xl border border-white/80 bg-white p-0.5 shadow-xs shrink-0"
               />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-tight">
+                <h1 className="text-sm sm:text-base lg:text-lg font-black text-slate-900 tracking-tight leading-tight truncate">
                   {config.park_settings.park_name}
                 </h1>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[10px] font-black uppercase tracking-wider shadow-2xs">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider shadow-2xs shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                   {config.counter_code}
                 </span>
               </div>
-              <p className="text-emerald-800 text-[10px] sm:text-[11px] font-bold tracking-tight">
+              <p className="text-emerald-800 text-[10px] sm:text-[11px] font-bold tracking-tight truncate">
                 {config.park_settings.organization_name} • Sirsaganj, Firozabad
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0 relative z-10">
-            <div className="bg-slate-900 text-white border border-slate-700/80 px-3 py-1 rounded-xl text-center sm:text-right shadow-xs space-y-0.5">
-              <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
+          <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0 relative z-10">
+            <div className="bg-slate-900 text-white border border-slate-700/80 px-2.5 sm:px-3 py-1 rounded-xl text-center sm:text-right shadow-xs space-y-0.5 flex-1 sm:flex-initial">
+              <div className="flex items-center justify-center sm:justify-end gap-1 text-[9px] sm:text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
                 <Clock className="w-3 h-3 text-emerald-400" />
-                <span>Current Time (IST)</span>
+                <span>IST Time</span>
               </div>
-              <div className="text-sm font-mono font-black text-white tracking-wider leading-none">
+              <div className="text-xs sm:text-sm font-mono font-black text-white tracking-wider leading-none">
                 {currentTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </div>
             </div>
@@ -178,7 +178,7 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
             <button
               type="button"
               onClick={() => setIsReportModalOpen(true)}
-              className="px-3 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-emerald-600/30"
+              className="px-3 sm:px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-emerald-600/30 shrink-0"
               title="Open Ticket Generate Report"
             >
               <FileText className="w-3.5 h-3.5" />
@@ -240,29 +240,29 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
             </div>
 
             {/* Custom Person Count Box (Enlarged, Touch-Friendly & High-Visibility) */}
-            <div className="bg-gradient-to-r from-emerald-50/80 via-white to-teal-50/80 p-3 sm:p-4 rounded-2xl border-2 border-emerald-300 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white flex items-center justify-center font-black text-xl shadow-xs shrink-0">
+            <div className="bg-gradient-to-r from-emerald-50/80 via-white to-teal-50/80 p-2.5 sm:p-3.5 rounded-2xl border-2 border-emerald-300 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3">
+              <div className="flex items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white flex items-center justify-center font-black text-xl shadow-xs shrink-0">
                   <Users className="w-5 h-5 text-white" />
                 </div>
-                <div>
+                <div className="min-w-0 flex-1">
                   <div className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <span>Custom Person Count</span>
-                    <span className="text-[10px] font-black text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-300/60">
+                    <span className="truncate">Custom Person Count</span>
+                    <span className="text-[9px] sm:text-[10px] font-black text-emerald-800 bg-emerald-100/90 px-1.5 sm:px-2 py-0.5 rounded-full border border-emerald-300/60 shrink-0">
                       Group Entry
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 font-semibold mt-0.5 truncate">
                     Type count directly or use large − / + buttons
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-center">
                 <button
                   type="button"
                   onClick={() => setPersons(Math.max(1, persons - 1))}
-                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-white hover:bg-emerald-600 text-slate-800 hover:text-white text-2xl font-black active:scale-90 transition border-2 border-slate-300 hover:border-emerald-600 shadow-sm cursor-pointer flex items-center justify-center shrink-0"
+                  className="w-11 h-11 sm:w-13 sm:h-13 rounded-xl bg-white hover:bg-emerald-600 text-slate-800 hover:text-white text-xl sm:text-2xl font-black active:scale-90 transition border-2 border-slate-300 hover:border-emerald-600 shadow-sm cursor-pointer flex items-center justify-center shrink-0"
                   title="Decrease person count"
                 >
                   −
@@ -282,12 +282,12 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
                     const val = e.target.value === '' ? 0 : parseInt(e.target.value);
                     setPersons(isNaN(val) ? 0 : Math.min(100, Math.max(0, val)));
                   }}
-                  className="w-20 sm:w-24 h-12 sm:h-14 text-center bg-white border-2 border-emerald-500 rounded-xl text-2xl sm:text-3xl font-black text-emerald-950 focus:outline-none focus:ring-4 focus:ring-emerald-500/25 shadow-inner"
+                  className="w-20 sm:w-24 h-11 sm:h-13 text-center bg-white border-2 border-emerald-500 rounded-xl text-2xl sm:text-3xl font-black text-emerald-950 focus:outline-none focus:ring-4 focus:ring-emerald-500/25 shadow-inner"
                 />
                 <button
                   type="button"
                   onClick={() => setPersons(persons + 1)}
-                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-white hover:bg-emerald-600 text-slate-800 hover:text-white text-2xl font-black active:scale-90 transition border-2 border-slate-300 hover:border-emerald-600 shadow-sm cursor-pointer flex items-center justify-center shrink-0"
+                  className="w-11 h-11 sm:w-13 sm:h-13 rounded-xl bg-white hover:bg-emerald-600 text-slate-800 hover:text-white text-xl sm:text-2xl font-black active:scale-90 transition border-2 border-slate-300 hover:border-emerald-600 shadow-sm cursor-pointer flex items-center justify-center shrink-0"
                   title="Increase person count"
                 >
                   +
@@ -337,13 +337,13 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
 
           {/* Step 3: Total & Big Print Button Hero Bar */}
           <div className="pt-2">
-            <div className="bg-gradient-to-r from-emerald-800 via-emerald-600 to-teal-600 text-white p-3.5 sm:p-4 rounded-2xl shadow-lg shadow-emerald-900/30 flex items-center justify-between gap-3 relative overflow-hidden">
+            <div className="bg-gradient-to-r from-emerald-800 via-emerald-600 to-teal-600 text-white p-3 sm:p-4 rounded-2xl shadow-lg shadow-emerald-900/30 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 relative overflow-hidden">
               <div className="relative z-10 min-w-0">
                 <div className="text-[10px] text-emerald-200 font-black uppercase tracking-wider flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
                   TOTAL PAYABLE AMOUNT
                 </div>
-                <div className="text-2xl sm:text-4xl font-black flex items-baseline gap-2 mt-0.5 tracking-tight truncate">
+                <div className="text-2xl sm:text-3xl lg:text-4xl font-black flex items-baseline gap-2 mt-0.5 tracking-tight truncate">
                   <span className="drop-shadow-xs">₹{totalAmountInr.toFixed(2)}</span>
                   <span className="text-xs sm:text-sm font-bold text-emerald-100/90 whitespace-nowrap">
                     ({persons} {persons === 1 ? 'Person' : 'Persons'})
@@ -355,7 +355,7 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
                 type="button"
                 disabled={isGenerating}
                 onClick={handleGenerateAndPrint}
-                className="px-6 sm:px-8 py-3 bg-white hover:bg-emerald-50 active:scale-95 text-emerald-900 font-black text-sm sm:text-base rounded-xl shadow-lg shadow-black/25 flex items-center justify-center gap-2 transition-all duration-150 disabled:opacity-50 cursor-pointer relative z-10 shrink-0 group"
+                className="w-full sm:w-auto px-6 sm:px-8 py-3 bg-white hover:bg-emerald-50 active:scale-95 text-emerald-900 font-black text-sm sm:text-base rounded-xl shadow-lg shadow-black/25 flex items-center justify-center gap-2 transition-all duration-150 disabled:opacity-50 cursor-pointer relative z-10 shrink-0 group"
               >
                 {isGenerating ? (
                   <>
@@ -647,7 +647,7 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
                   <p className="text-xs text-slate-400 mt-1">Try changing your search terms or filters.</p>
                 </div>
               ) : (
-                <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+                <div className="border border-slate-200 rounded-2xl overflow-x-auto shadow-2xs">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">

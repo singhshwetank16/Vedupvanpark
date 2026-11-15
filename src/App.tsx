@@ -104,8 +104,8 @@ export function App() {
         {/* Main Workspace Body: Desktop locked to viewport, content aligned to top below navbar */}
         <main className={`flex-1 no-print ${
           activeTab === 'counter' || activeTab === 'passes'
-            ? 'h-[calc(100vh-4rem)] md:overflow-hidden overflow-y-auto flex flex-col justify-start px-3 sm:px-6 lg:px-8 pt-2 sm:pt-3 pb-2'
-            : 'pb-28 md:pb-16 pt-4'
+            ? 'min-h-[calc(100vh-4rem)] overflow-y-auto flex flex-col justify-start px-2 sm:px-4 lg:px-8 pt-2 sm:pt-3 pb-28 md:pb-12'
+            : 'min-h-[calc(100vh-4rem)] overflow-y-auto px-2 sm:px-4 lg:px-8 pt-3 pb-28 md:pb-16'
         }`}>
           {/* Admin Dashboard */}
           {isAdmin && activeTab === 'logs' && (
@@ -134,7 +134,7 @@ export function App() {
         </main>
 
         {/* Mobile Bottom Navigation Bar (Filtered by Role) */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 p-2 z-40 no-print flex items-center justify-around">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 px-2 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] z-40 no-print flex items-center justify-around">
           {isAdmin && (
             <button
               onClick={() => setActiveTab('logs')}

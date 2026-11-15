@@ -46,7 +46,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="h-screen h-[100dvh] w-full bg-[#031d16] flex flex-col justify-center items-center px-4 py-2 relative overflow-hidden select-none font-sans">
+    <div className="min-h-screen min-h-[100dvh] w-full bg-[#031d16] flex flex-col justify-center items-center px-4 py-6 relative overflow-y-auto select-none font-sans">
       {/* Living Park Nature & Greenery Animated Background */}
       <NatureBackground />
 

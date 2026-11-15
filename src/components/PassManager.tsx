@@ -311,34 +311,34 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
   return (
     <div className="max-w-[1440px] xl:max-w-[1560px] mx-auto w-full px-2 sm:px-4 py-1 space-y-2.5">
       {/* Compact Title Header with Logo & Mode Switcher */}
-      <div className="bg-gradient-to-br from-white via-white to-emerald-50/50 border border-white/70 rounded-2xl px-4 py-2 sm:py-2.5 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5 shrink-0">
-        <div className="flex items-center gap-3">
+      <div className="bg-gradient-to-br from-white via-white to-emerald-50/50 border border-white/70 rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5 shrink-0">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <div className="relative group shrink-0">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl blur-xs opacity-70 group-hover:opacity-100 transition" />
             <img
               src={LOGO_URL}
               alt="Logo"
-              className="relative w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-xl border border-white/80 p-0.5 bg-white shadow-xs"
+              className="relative w-8 h-8 sm:w-10 sm:h-10 object-contain rounded-xl border border-white/80 p-0.5 bg-white shadow-xs"
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-tight">
+              <h1 className="text-sm sm:text-base lg:text-lg font-black text-slate-900 tracking-tight leading-tight truncate">
                 Subscription Passes Desk
               </h1>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-[10px] font-black uppercase tracking-wider">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-[9px] sm:text-[10px] font-black uppercase tracking-wider shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
                 Pass Desk
               </span>
             </div>
-            <p className="text-slate-500 text-[10px] sm:text-[11px] font-medium">
-              Issue Monthly (1, 2, 3 Months) & Yearly regular walker passes with instant thermal QR badge slips.
+            <p className="text-slate-500 text-[10px] sm:text-[11px] font-medium truncate">
+              Issue Monthly & Yearly regular walker passes with instant thermal QR badge slips.
             </p>
           </div>
         </div>
 
         {/* Pass Type Switcher Tabs with Vibrant Gradients */}
-        <div className="w-full sm:w-auto grid grid-cols-2 bg-slate-100/90 backdrop-blur-md p-1 rounded-xl border border-slate-200/80 shadow-2xs gap-1 shrink-0">
+        <div className="w-full md:w-auto grid grid-cols-2 bg-slate-100/90 backdrop-blur-md p-1 rounded-xl border border-slate-200/80 shadow-2xs gap-1 shrink-0">
           <button
             type="button"
             onClick={() => setPassType('MONTHLY')}
@@ -613,13 +613,13 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
             </div>
 
             {/* Total Fee & Submit Hero Bar */}
-            <div className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-700 p-3 sm:p-3.5 rounded-2xl shadow-lg border border-emerald-600/50 flex items-center justify-between gap-3 text-white">
-              <div>
+            <div className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-700 p-3 sm:p-3.5 rounded-2xl shadow-lg border border-emerald-600/50 flex flex-col xs:flex-row items-stretch xs:items-center justify-between gap-3 text-white">
+              <div className="min-w-0">
                 <div className="text-[10px] uppercase tracking-wider text-emerald-200 font-extrabold">Total Fee</div>
                 <div className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
                   ₹{totalAmountInr.toFixed(2)}
                 </div>
-                <div className="text-[10px] sm:text-[11px] text-emerald-100 font-medium">
+                <div className="text-[10px] sm:text-[11px] text-emerald-100 font-medium truncate">
                   Valid Through: <strong className="font-mono text-white">{estimatedValidThrough}</strong>
                 </div>
               </div>
@@ -627,7 +627,7 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
               <button
                 type="submit"
                 disabled={isGenerating || !phoneValidation.isValid || existingActivePass !== null}
-                className="px-5 sm:px-6 py-2.5 sm:py-3 bg-white hover:bg-emerald-50 active:scale-95 text-emerald-950 font-black rounded-xl shadow-lg shadow-black/20 flex items-center justify-center gap-1.5 text-xs sm:text-sm disabled:opacity-50 transition cursor-pointer"
+                className="w-full xs:w-auto px-5 sm:px-6 py-2.5 sm:py-3 bg-white hover:bg-emerald-50 active:scale-95 text-emerald-950 font-black rounded-xl shadow-lg shadow-black/20 flex items-center justify-center gap-1.5 text-xs sm:text-sm disabled:opacity-50 transition cursor-pointer shrink-0"
               >
                 <Printer className="w-4 h-4 text-emerald-700" />
                 <span>
@@ -735,7 +735,7 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
           </div>
 
           {/* Calibrated Scrollable Box: Matches Left Card height and pt-1 prevents clipping */}
-          <div className="h-[310px] sm:h-[340px] overflow-y-auto custom-scrollbar space-y-2 pr-1 pt-1">
+          <div className="min-h-[260px] max-h-[380px] lg:h-[340px] overflow-y-auto custom-scrollbar space-y-2 pr-1 pt-1">
             {filteredPasses.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center py-6 text-center space-y-2">
                 <div className="w-10 h-10 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center border border-slate-200 shadow-2xs">
