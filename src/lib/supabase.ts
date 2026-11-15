@@ -978,19 +978,19 @@ class VupDatabaseService {
     let details_summary: string | undefined;
     let after_json: any = null;
 
-    if (typeof actionOrParams === 'object' && actionOrParams !== null) {
-      action = actionOrParams.action;
-      entity_type = actionOrParams.entity_type;
+    if (typeof actionOrParams === 'string') {
+      action = actionOrParams;
+      entity_type = legacyEntityType || 'SYSTEM';
+      entity_id = legacyEntityId;
+      after_json = legacyAfterJson || null;
+    } else if (actionOrParams && typeof actionOrParams === 'object') {
+      action = actionOrParams.action || '';
+      entity_type = actionOrParams.entity_type || 'SYSTEM';
       entity_id = actionOrParams.entity_id;
       actor_name = actionOrParams.actor_name;
       actor_email = actionOrParams.actor_email;
       details_summary = actionOrParams.details_summary;
       after_json = actionOrParams.after_json;
-    } else {
-      action = actionOrParams;
-      entity_type = legacyEntityType || 'SYSTEM';
-      entity_id = legacyEntityId;
-      after_json = legacyAfterJson || null;
     }
 
     const currentStaff = this.getCurrentStaff();
