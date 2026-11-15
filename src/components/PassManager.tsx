@@ -3,7 +3,6 @@ import type { Pass, AppConfig, PaymentMethod } from '../types';
 import { dbService } from '../lib/supabase';
 import { printerService } from '../lib/printer';
 import {
-  CreditCard,
   Calendar,
   Printer,
   CheckCircle2,
@@ -13,7 +12,9 @@ import {
   QrCode,
   User,
   Phone,
-  RefreshCw
+  RefreshCw,
+  Search,
+  X
 } from 'lucide-react';
 import { LOGO_URL } from '../assets/logo';
 
@@ -31,6 +32,11 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
   const [isGenerating, setIsGenerating] = useState(false);
   const [recentPasses, setRecentPasses] = useState<Pass[]>([]);
   const [pricingRates, setPricingRates] = useState(() => dbService.getPricingRates());
+
+  // Search filter for re-printing passes by Mobile number or Name
+  const [searchQuery, setSearchQuery] = useState('');
+  const [cloudSearchResults, setCloudSearchResults] = useState<Pass[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   // Dynamic base rate calculation from Admin settings:
   const baseRateInr = useMemo(() => {
@@ -54,11 +60,11 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
 
   const loadPasses = async () => {
     try {
-      const passes = await dbService.fetchRecentPasses(8);
+      const passes = await dbService.fetchRecentPasses(30);
       setRecentPasses(passes);
     } catch {
       const all = dbService.getLocalPasses();
-      setRecentPasses(all.slice(0, 8));
+      setRecentPasses(all.slice(0, 30));
     }
   };
 
@@ -68,9 +74,66 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
     const interval = setInterval(() => {
       loadPasses();
       setPricingRates(dbService.getPricingRates());
-    }, 3000);
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
+
+  // Live & Cloud Search by mobile number or name
+  useEffect(() => {
+    const q = searchQuery.trim();
+    const cleanDigits = q.replace(/\D/g, '');
+    if (cleanDigits.length >= 4 || q.length >= 3) {
+      const timer = setTimeout(async () => {
+        setIsSearching(true);
+        try {
+          if (cleanDigits.length >= 4) {
+            const res = await dbService.searchPassByPhone(cleanDigits);
+            setCloudSearchResults(res);
+          } else {
+            const local = dbService.getLocalPasses();
+            const matches = local.filter(p =>
+              (p.holder_name && p.holder_name.toLowerCase().includes(q.toLowerCase())) ||
+              (p.pass_number && p.pass_number.toLowerCase().includes(q.toLowerCase()))
+            );
+            setCloudSearchResults(matches);
+          }
+        } catch (e) {
+          console.warn('Search pass error:', e);
+        } finally {
+          setIsSearching(false);
+        }
+      }, 300);
+      return () => clearTimeout(timer);
+    } else {
+      setCloudSearchResults([]);
+    }
+  }, [searchQuery]);
+
+  // Combined passes matching search query
+  const filteredPasses = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const digits = q.replace(/\D/g, '');
+
+    const combined = [...cloudSearchResults];
+    for (const p of recentPasses) {
+      if (!combined.some(c => c.id === p.id || c.pass_number === p.pass_number)) {
+        combined.push(p);
+      }
+    }
+
+    if (!q) return recentPasses;
+
+    return combined.filter(p => {
+      const pPhone = (p.holder_phone || '').replace(/\D/g, '');
+      const pName = (p.holder_name || '').toLowerCase();
+      const pNum = (p.pass_number || '').toLowerCase();
+
+      if (digits && pPhone.includes(digits)) return true;
+      if (pName.includes(q)) return true;
+      if (pNum.includes(q)) return true;
+      return false;
+    });
+  }, [recentPasses, cloudSearchResults, searchQuery]);
 
   const handleGeneratePass = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -357,7 +420,7 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
         </div>
 
         {/* Right Sidebar: Active Passes List (Strictly fixed height with internal scroller only) */}
-        <div className="lg:col-span-5 bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/70 rounded-2xl p-4 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex flex-col justify-between space-y-2 shrink-0">
+        <div className="lg:col-span-5 bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/70 rounded-2xl p-4 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex flex-col justify-between space-y-2.5 shrink-0">
           <div className="flex items-center justify-between border-b border-emerald-950/10 pb-2 shrink-0">
             <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -372,21 +435,56 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
               </button>
             </h3>
             <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-              {recentPasses.length} Total
+              {filteredPasses.length} {searchQuery ? 'Found' : 'Total'}
             </span>
           </div>
 
+          {/* Search by Mobile Number / Name Filter */}
+          <div className="relative shrink-0">
+            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+              <Search className="w-3.5 h-3.5 text-emerald-600" />
+            </div>
+            <input
+              type="text"
+              placeholder="Search by Mobile # (e.g. 98...) or Name to Re-Print..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-8 py-1.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition shadow-inner font-mono"
+            />
+            {isSearching ? (
+              <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-emerald-600 pointer-events-none">
+                <RefreshCw className="w-3 h-3 animate-spin" />
+              </div>
+            ) : searchQuery ? (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-700 cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            ) : null}
+          </div>
+
           {/* Strictly Fixed-Height Scrollable Box: Only this inner box scrolls, page never expands */}
-          <div className="space-y-2 overflow-y-auto custom-scrollbar h-[250px] sm:h-[260px] pr-1.5 shrink-0">
-            {recentPasses.length === 0 ? (
+          <div className="space-y-2 overflow-y-auto custom-scrollbar h-[225px] sm:h-[235px] pr-1.5 shrink-0">
+            {filteredPasses.length === 0 ? (
               <div className="py-8 text-center space-y-1.5">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-100">
-                  <CreditCard className="w-5 h-5 opacity-60" />
+                <div className="w-10 h-10 rounded-xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto border border-slate-200">
+                  <Phone className="w-5 h-5 opacity-60" />
                 </div>
-                <p className="text-xs text-slate-400 font-medium">No subscription passes issued yet today.</p>
+                <p className="text-xs text-slate-700 font-bold">
+                  {searchQuery ? `No pass found for "${searchQuery}"` : 'No subscription passes issued yet today.'}
+                </p>
+                {searchQuery && (
+                  <p className="text-[11px] text-slate-400">
+                    Check the 10-digit mobile number or name spelling.
+                  </p>
+                )}
               </div>
             ) : (
-              recentPasses.map(pass => (
+              filteredPasses.map(pass => (
                 <div
                   key={pass.id}
                   className="bg-white p-2.5 rounded-xl border border-slate-200/90 hover:border-emerald-300 transition space-y-1.5 group"
@@ -418,11 +516,19 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                   </div>
 
                   <div className="flex justify-between items-baseline">
-                    <span className="font-black text-slate-900 text-xs sm:text-sm flex items-center gap-1.5 truncate max-w-[190px]">
-                      <UserCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span className="truncate">{pass.holder_name}</span>
-                    </span>
-                    <span className="text-sm font-black text-emerald-800">
+                    <div className="min-w-0 flex-1 pr-2">
+                      <span className="font-black text-slate-900 text-xs sm:text-sm flex items-center gap-1.5 truncate">
+                        <UserCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span className="truncate">{pass.holder_name}</span>
+                      </span>
+                      {pass.holder_phone && (
+                        <div className="text-[10px] text-slate-600 font-mono font-bold flex items-center gap-1 mt-0.5">
+                          <Phone className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                          <span>{pass.holder_phone}</span>
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-sm font-black text-emerald-800 shrink-0">
                       ₹{((pass.amount_paise || 0) / 100).toFixed(2)}
                     </span>
                   </div>
