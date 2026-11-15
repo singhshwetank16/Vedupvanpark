@@ -16,6 +16,22 @@
   display: none;
 }
 
+/* Elegant Slim Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.25);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.55);
+}
+
 /* ==============================================================================
    PRINT STYLES: DUAL MODE
    1. Default Mode: 3-Inch (76.2mm) Thermal POS Slip
