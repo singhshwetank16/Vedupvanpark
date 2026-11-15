@@ -1880,7 +1880,30 @@ class VupDatabaseService {
           .limit(limit);
 
         if (!error && data) {
-          const cloudPasses = data as Pass[];
+          const cloudPasses = (data as Pass[]).map(p => {
+            let amt = p.amount_paise;
+            if (p.pass_type === 'YEARLY') {
+              amt = (amt && amt > 100000) ? amt : 310000;
+            } else {
+              const name = (p.plan_name || '').toLowerCase();
+              let diffDays = 30;
+              if (p.valid_from && p.valid_through) {
+                const f = new Date(p.valid_from).getTime();
+                const t = new Date(p.valid_through).getTime();
+                if (!isNaN(f) && !isNaN(t) && t > f) {
+                  diffDays = Math.round((t - f) / (1000 * 60 * 60 * 24));
+                }
+              }
+              if (name.includes('3 month') || name.includes('3m') || diffDays >= 75) {
+                amt = (amt && amt >= 80000) ? amt : 90000;
+              } else if (name.includes('2 month') || name.includes('2m') || (diffDays >= 45 && diffDays < 75)) {
+                amt = (amt && amt >= 50000 && amt < 80000) ? amt : 60000;
+              } else {
+                amt = (amt && amt > 0 && amt < 50000) ? amt : 30000;
+              }
+            }
+            return { ...p, amount_paise: amt };
+          });
           if (cloudPasses.length === 0) {
             localStorage.removeItem('vup_passes');
             return [];
@@ -1970,10 +1993,34 @@ class VupDatabaseService {
         ...t,
         device_name: t.device_name || defaultDev.deviceName,
       })),
-      passes: mergedPasses.map(p => ({
-        ...p,
-        device_name: p.device_name || defaultDev.deviceName,
-      })),
+      passes: mergedPasses.map(p => {
+        let amt = p.amount_paise;
+        if (p.pass_type === 'YEARLY') {
+          amt = (amt && amt > 100000) ? amt : 310000;
+        } else {
+          const name = (p.plan_name || '').toLowerCase();
+          let diffDays = 30;
+          if (p.valid_from && p.valid_through) {
+            const f = new Date(p.valid_from).getTime();
+            const t = new Date(p.valid_through).getTime();
+            if (!isNaN(f) && !isNaN(t) && t > f) {
+              diffDays = Math.round((t - f) / (1000 * 60 * 60 * 24));
+            }
+          }
+          if (name.includes('3 month') || name.includes('3m') || diffDays >= 75) {
+            amt = (amt && amt >= 80000) ? amt : 90000;
+          } else if (name.includes('2 month') || name.includes('2m') || (diffDays >= 45 && diffDays < 75)) {
+            amt = (amt && amt >= 50000 && amt < 80000) ? amt : 60000;
+          } else {
+            amt = (amt && amt > 0 && amt < 50000) ? amt : 30000;
+          }
+        }
+        return {
+          ...p,
+          amount_paise: amt,
+          device_name: p.device_name || defaultDev.deviceName,
+        };
+      }),
       entryEvents: mergedEvents.map(e => ({
         ...e,
         device_name: e.device_name || defaultDev.deviceName,

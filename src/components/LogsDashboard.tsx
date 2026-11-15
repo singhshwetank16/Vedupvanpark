@@ -136,6 +136,38 @@ export const getPassDurationCategory = (p: Pass): PassDurationCategoryInfo => {
   };
 };
 
+export const getPassEffectiveAmountPaise = (
+  p: Pass, 
+  rates?: { monthly_pass_1m_inr: number; monthly_pass_2m_inr: number; monthly_pass_3m_inr: number; yearly_pass_inr: number }
+): number => {
+  const currentRates = rates || dbService.getPricingRates();
+  if (p.pass_type === 'YEARLY') {
+    return (p.amount_paise && p.amount_paise > 100000) ? p.amount_paise : (currentRates.yearly_pass_inr * 100);
+  }
+
+  const info = getPassDurationCategory(p);
+
+  if (info.category === '3_MONTHS') {
+    if (p.amount_paise && p.amount_paise >= 80000) {
+      return p.amount_paise;
+    }
+    return (currentRates.monthly_pass_3m_inr || 900) * 100;
+  }
+
+  if (info.category === '2_MONTHS') {
+    if (p.amount_paise && p.amount_paise >= 50000 && p.amount_paise < 80000) {
+      return p.amount_paise;
+    }
+    return (currentRates.monthly_pass_2m_inr || 600) * 100;
+  }
+
+  // 1 Month:
+  if (p.amount_paise && p.amount_paise > 0 && p.amount_paise < 50000) {
+    return p.amount_paise;
+  }
+  return (currentRates.monthly_pass_1m_inr || 300) * 100;
+};
+
 export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGenerated }) => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [passes, setPasses] = useState<Pass[]>([]);
@@ -1005,7 +1037,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
         totalPaise: 0,
       };
       const dInfo = getPassDurationCategory(p);
-      const amount = p.amount_paise || (p.pass_type === 'YEARLY' ? 310000 : (dInfo.expectedRateInr * 100));
+      const amount = getPassEffectiveAmountPaise(p, ratesForm);
       entry.passesCount += 1;
       if (p.pass_type === 'YEARLY') {
         entry.passesYearlyCount += 1;
@@ -1099,7 +1131,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
         totalPaise: 0,
       };
       const dInfo = getPassDurationCategory(p);
-      const amount = p.amount_paise || (p.pass_type === 'YEARLY' ? 310000 : (dInfo.expectedRateInr * 100));
+      const amount = getPassEffectiveAmountPaise(p, ratesForm);
       entry.passesCount += 1;
       if (p.pass_type === 'YEARLY') {
         entry.passesYearlyCount += 1;
@@ -1161,7 +1193,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
 
     allMonthlyGeneratePassData.forEach(p => {
       const info = getPassDurationCategory(p);
-      const amount = p.amount_paise || (info.expectedRateInr * 100);
+      const amount = getPassEffectiveAmountPaise(p, ratesForm);
       if (info.category === '3_MONTHS') {
         count3M += 1;
         revPaise3M += amount;
@@ -1184,7 +1216,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
       m2: { count: count2M, revPaise: revPaise2M },
       m3: { count: count3M, revPaise: revPaise3M },
     };
-  }, [allMonthlyGeneratePassData]);
+  }, [allMonthlyGeneratePassData, ratesForm]);
 
   // Filtered dataset for Table & Export based on monthlyDurationFilter
   const monthlyGeneratePassData = useMemo(() => {
@@ -1333,7 +1365,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
         r.status,
       ]);
     } else if (selectedReport === 'monthly-generate-pass') {
-      headers = ['Issue Timestamp (IST)', 'Pass Number', 'Plan Duration', 'Holder Name', 'Phone', 'People Allowed', 'Valid From', 'Valid Through', 'Payment Mode', 'Amount (INR)', 'Status'];
+      headers = ['Issue Timestamp (IST)', 'Pass Number', 'Plan Duration', 'Holder Name', 'Phone', 'Valid From', 'Valid Through', 'Payment Mode', 'Amount (INR)', 'Status'];
       rows = monthlyGeneratePassData.map(r => {
         const dInfo = getPassDurationCategory(r);
         return [
@@ -1342,27 +1374,25 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
           dInfo.label,
           r.holder_name,
           r.holder_phone || '—',
-          r.people_allowed,
           r.valid_from,
           r.valid_through,
           r.payment_method || 'CASH',
-          ((r.amount_paise || (dInfo.expectedRateInr * 100)) / 100).toFixed(2),
+          (getPassEffectiveAmountPaise(r, ratesForm) / 100).toFixed(2),
           r.status,
         ];
       });
     } else if (selectedReport === 'yearly-generate-pass') {
-      headers = ['Issue Timestamp (IST)', 'Pass Number', 'Plan Duration', 'Holder Name', 'Phone', 'People Allowed', 'Valid From', 'Valid Through', 'Payment Mode', 'Amount (INR)', 'Status'];
+      headers = ['Issue Timestamp (IST)', 'Pass Number', 'Plan Duration', 'Holder Name', 'Phone', 'Valid From', 'Valid Through', 'Payment Mode', 'Amount (INR)', 'Status'];
       rows = yearlyGeneratePassData.map(r => [
         new Date(r.created_at).toLocaleString('en-IN'),
         r.pass_number,
         '1 Year (365 Days)',
         r.holder_name,
         r.holder_phone || '—',
-        r.people_allowed,
         r.valid_from,
         r.valid_through,
         r.payment_method || 'CASH',
-        ((r.amount_paise || 310000) / 100).toFixed(2),
+        (getPassEffectiveAmountPaise(r, ratesForm) / 100).toFixed(2),
         r.status,
       ]);
     } else if (selectedReport === 'monthly-scan-pass') {
@@ -1446,13 +1476,13 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
   const todayPasses = passes.filter(p => isSameIstDay(p.created_at, todayYmd));
 
   const todayRevenuePaise = todayTickets.reduce((sum, t) => sum + (t.price_paise || (t.persons_count || 1) * 1000), 0) +
-    todayPasses.reduce((sum, p) => sum + (p.amount_paise || (p.pass_type === 'YEARLY' ? 310000 : 30000)), 0);
+    todayPasses.reduce((sum, p) => sum + getPassEffectiveAmountPaise(p, ratesForm), 0);
   const todayRevenueInr = (todayRevenuePaise / 100).toFixed(2);
 
   const todayCashPaise = todayTickets.filter(t => (t.payment_method || 'CASH') === 'CASH').reduce((sum, t) => sum + (t.price_paise || (t.persons_count || 1) * 1000), 0) +
-    todayPasses.filter(p => (p.payment_method || 'CASH') === 'CASH').reduce((sum, p) => sum + (p.amount_paise || (p.pass_type === 'YEARLY' ? 310000 : 30000)), 0);
+    todayPasses.filter(p => (p.payment_method || 'CASH') === 'CASH').reduce((sum, p) => sum + getPassEffectiveAmountPaise(p, ratesForm), 0);
   const todayUpiPaise = todayTickets.filter(t => t.payment_method === 'UPI').reduce((sum, t) => sum + (t.price_paise || (t.persons_count || 1) * 1000), 0) +
-    todayPasses.filter(p => p.payment_method === 'UPI').reduce((sum, p) => sum + (p.amount_paise || (p.pass_type === 'YEARLY' ? 310000 : 30000)), 0);
+    todayPasses.filter(p => p.payment_method === 'UPI').reduce((sum, p) => sum + getPassEffectiveAmountPaise(p, ratesForm), 0);
 
   const todaySuccessEvents = entryEvents.filter(e => e.result === 'SUCCESS' && isSameIstDay(e.scanned_at, todayYmd));
   const totalVisitorsAdmitted = todaySuccessEvents.reduce((sum, e) => sum + (e.persons_admitted || 1), 0);
@@ -2303,7 +2333,6 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                         <th className="py-3 px-3">Plan Duration</th>
                         <th className="py-3 px-3">Holder Name</th>
                         <th className="py-3 px-3">Phone</th>
-                        <th className="py-3 px-3">Allowed</th>
                         <th className="py-3 px-3">Valid Period</th>
                         <th className="py-3 px-3">Pay Mode</th>
                         <th className="py-3 px-3">Amount (₹)</th>
@@ -2313,7 +2342,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                     <tbody className="divide-y divide-slate-100">
                       {monthlyGeneratePassData.length === 0 ? (
                         <tr>
-                          <td colSpan={11} className="py-10 text-center text-slate-400">
+                          <td colSpan={10} className="py-10 text-center text-slate-400">
                             No monthly subscription passes found matching the current filter.
                           </td>
                         </tr>
@@ -2343,7 +2372,6 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                               </td>
                               <td className="py-3 px-3 font-bold text-slate-900">{ps.holder_name}</td>
                               <td className="py-3 px-3 text-slate-600">{ps.holder_phone || '—'}</td>
-                              <td className="py-3 px-3 font-bold text-slate-800">{ps.people_allowed} Person</td>
                               <td className="py-3 px-3 text-slate-600 font-mono text-[11px]">
                                 {ps.valid_from} → {ps.valid_through}
                               </td>
@@ -2353,7 +2381,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                                 </span>
                               </td>
                               <td className="py-3 px-3 font-black text-slate-900">
-                                ₹{((ps.amount_paise || (dInfo.expectedRateInr * 100)) / 100).toFixed(2)}
+                                ₹{(getPassEffectiveAmountPaise(ps, ratesForm) / 100).toFixed(2)}
                               </td>
                               <td className="py-3 px-3">
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
@@ -2376,9 +2404,9 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                               </span>
                             )}
                           </td>
-                          <td colSpan={5}></td>
+                          <td colSpan={4}></td>
                           <td className="py-3 px-3 text-purple-900 text-sm">
-                            ₹{(monthlyGeneratePassData.reduce((s, p) => s + (p.amount_paise || (getPassDurationCategory(p).expectedRateInr * 100)), 0) / 100).toFixed(2)}
+                            ₹{(monthlyGeneratePassData.reduce((s, p) => s + getPassEffectiveAmountPaise(p, ratesForm), 0) / 100).toFixed(2)}
                           </td>
                           <td></td>
                         </tr>
@@ -2401,7 +2429,6 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                       <th className="py-3 px-3">Plan Duration</th>
                       <th className="py-3 px-3">Holder Name</th>
                       <th className="py-3 px-3">Phone</th>
-                      <th className="py-3 px-3">Allowed Members</th>
                       <th className="py-3 px-3">Valid Period</th>
                       <th className="py-3 px-3">Pay Mode</th>
                       <th className="py-3 px-3">Amount (₹)</th>
@@ -2411,7 +2438,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                   <tbody className="divide-y divide-slate-100">
                     {yearlyGeneratePassData.length === 0 ? (
                       <tr>
-                        <td colSpan={11} className="py-10 text-center text-slate-400">
+                        <td colSpan={10} className="py-10 text-center text-slate-400">
                           No yearly subscription passes generated in the selected period.
                         </td>
                       </tr>
@@ -2433,7 +2460,6 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                           </td>
                           <td className="py-3 px-3 font-bold text-slate-900">{ps.holder_name}</td>
                           <td className="py-3 px-3 text-slate-600">{ps.holder_phone || '—'}</td>
-                          <td className="py-3 px-3 font-bold text-purple-800">{ps.people_allowed} Person</td>
                           <td className="py-3 px-3 text-slate-600 font-mono text-[11px]">
                             {ps.valid_from} → {ps.valid_through}
                           </td>
@@ -2443,7 +2469,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                             </span>
                           </td>
                           <td className="py-3 px-3 font-black text-slate-900">
-                            ₹{((ps.amount_paise || 310000) / 100).toFixed(2)}
+                            ₹{(getPassEffectiveAmountPaise(ps, ratesForm) / 100).toFixed(2)}
                           </td>
                           <td className="py-3 px-3">
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
@@ -2458,9 +2484,9 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                     <tfoot>
                       <tr className="border-t-2 border-slate-300 bg-purple-50/60 font-black text-slate-900">
                         <td className="py-3 px-3 uppercase" colSpan={4}>Total Passes: {yearlyGeneratePassData.length}</td>
-                        <td colSpan={5}></td>
+                        <td colSpan={4}></td>
                         <td className="py-3 px-3 text-purple-900 text-sm">
-                          ₹{(yearlyGeneratePassData.reduce((s, p) => s + (p.amount_paise || 310000), 0) / 100).toFixed(2)}
+                          ₹{(yearlyGeneratePassData.reduce((s, p) => s + getPassEffectiveAmountPaise(p, ratesForm), 0) / 100).toFixed(2)}
                         </td>
                         <td></td>
                       </tr>
@@ -4186,7 +4212,6 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                   <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Plan Duration</th>
                   <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Holder Name</th>
                   <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Phone</th>
-                  <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Allowed</th>
                   <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Validity</th>
                   <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Mode</th>
                   <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'right' }}>Amount (₹)</th>
@@ -4202,11 +4227,10 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                       <td style={{ border: '1px solid #cbd5e1', padding: '6px', fontWeight: 'bold' }}>{dInfo.label}</td>
                       <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{ps.holder_name}</td>
                       <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{ps.holder_phone || '—'}</td>
-                      <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{ps.people_allowed} Person</td>
                       <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{ps.valid_from} to {ps.valid_through}</td>
                       <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{ps.payment_method || 'CASH'}</td>
                       <td style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'right' }}>
-                        ₹{((ps.amount_paise || (ps.pass_type === 'YEARLY' ? 310000 : (dInfo.expectedRateInr * 100))) / 100).toFixed(2)}
+                        ₹{(getPassEffectiveAmountPaise(ps, ratesForm) / 100).toFixed(2)}
                       </td>
                     </tr>
                   );
