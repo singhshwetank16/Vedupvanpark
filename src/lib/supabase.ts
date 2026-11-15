@@ -317,10 +317,14 @@ class VupDatabaseService {
   async resetAllDatabaseAndLocal(): Promise<void> {
     if (this.supabase) {
       try {
-        await this.supabase.from('entry_events').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        await this.supabase.from('tickets').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        await this.supabase.from('passes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-        await this.supabase.from('orders').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        const { error } = await this.supabase.rpc('reset_all_data');
+        if (error) {
+          console.warn('Supabase reset_all_data RPC error, trying fallback:', error);
+          await this.supabase.from('entry_events').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          await this.supabase.from('tickets').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          await this.supabase.from('passes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          await this.supabase.from('orders').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        }
       } catch (e) {
         console.warn('Supabase cloud reset warning:', e);
       }
@@ -797,7 +801,11 @@ class VupDatabaseService {
       localStorage.removeItem('vup_audit_logs');
       if (this.supabase) {
         try {
-          await this.supabase.from('audit_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          const { error } = await this.supabase.rpc('clear_audit_logs');
+          if (error) {
+            console.warn('Supabase clear_audit_logs error, fallback:', error);
+            await this.supabase.from('audit_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+          }
         } catch (e) {
           console.warn('Supabase audit logs deletion error:', e);
         }

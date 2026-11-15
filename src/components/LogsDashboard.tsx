@@ -727,17 +727,10 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
       return;
     }
     try {
-      const currentStaff = dbService.getCurrentStaff();
       const res = await dbService.clearAllAuditLogs();
       if (res.success) {
-        dbService.logAuditEvent({
-          action: 'LOGS_CLEARED',
-          entity_type: 'AUDIT',
-          actor_name: currentStaff?.name || 'Administrator',
-          actor_email: currentStaff?.email || 'admin@vedupvan.local',
-          details_summary: 'All system audit and activity logs were cleared by Administrator',
-        });
-        await loadData();
+        setAuditLogs([]);
+        await loadData(true);
         alert('All system logs have been cleared successfully!');
       } else {
         alert(res.message || 'Failed to clear logs.');
