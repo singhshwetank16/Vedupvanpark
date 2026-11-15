@@ -76,6 +76,39 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
     return { isValid: false, status: 'INVALID', message: 'Invalid 10-digit mobile number' };
   }, [holderPhone]);
 
+  // Real-time 10-digit validation for the search box
+  const searchValidation = useMemo(() => {
+    const q = searchQuery.trim();
+    if (!q) return null;
+    const isDigitsOnly = /^\d+$/.test(q);
+    if (!isDigitsOnly) {
+      return { type: 'NAME', isValid: true, status: 'NAME', message: `Searching by Name: "${q}"` };
+    }
+    const digits = q.replace(/\D/g, '');
+    if (digits.length > 0 && !/^[6-9]/.test(digits)) {
+      return {
+        type: 'PHONE',
+        isValid: false,
+        status: 'INVALID_START',
+        message: 'Must start with 6, 7, 8, or 9',
+      };
+    }
+    if (digits.length < 10) {
+      return {
+        type: 'PHONE',
+        isValid: false,
+        status: 'INCOMPLETE',
+        message: `${digits.length}/10 digits entered (${10 - digits.length} more needed)`,
+      };
+    }
+    return {
+      type: 'PHONE',
+      isValid: true,
+      status: 'VALID',
+      message: `✓ 10-Digit Mobile: ${digits}`,
+    };
+  }, [searchQuery]);
+
   useEffect(() => {
     if (passType === 'MONTHLY') {
       setValidityDays(30);
@@ -617,32 +650,74 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
             </span>
           </div>
 
-          {/* Search by Mobile Number / Name Filter */}
-          <div className="relative shrink-0">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-              <Search className="w-4 h-4 text-emerald-600" />
-            </div>
-            <input
-              type="text"
-              placeholder="Search by Mobile # (e.g. 98...) or Name to Re-Print..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-9 py-2 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition shadow-inner font-mono"
-            />
-            {isSearching ? (
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center text-emerald-600 pointer-events-none">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+          {/* Search by 10-Digit Mobile Number / Name Filter */}
+          <div className="space-y-1.5 shrink-0">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <Search className="w-4 h-4 text-emerald-600" />
               </div>
-            ) : searchQuery ? (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-700 cursor-pointer"
-                title="Clear search"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            ) : null}
+              <input
+                type="text"
+                inputMode={/^\d*$/.test(searchQuery) ? 'numeric' : 'text'}
+                maxLength={/^\d+$/.test(searchQuery.trim()) ? 10 : 50}
+                placeholder="Search by 10-Digit Mobile # (e.g. 98...) or Name..."
+                value={searchQuery}
+                onChange={e => {
+                  const val = e.target.value;
+                  if (/^\d+$/.test(val.trim())) {
+                    setSearchQuery(val.replace(/\D/g, '').slice(0, 10));
+                  } else {
+                    setSearchQuery(val);
+                  }
+                }}
+                className={`w-full pl-9 pr-9 py-2 bg-slate-50 hover:bg-white focus:bg-white border rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-2 transition shadow-inner font-mono ${
+                  searchValidation?.type === 'PHONE' && !searchValidation.isValid
+                    ? 'border-amber-400 focus:border-amber-500 focus:ring-amber-500/20'
+                    : searchValidation?.type === 'PHONE' && searchValidation.isValid
+                      ? 'border-emerald-500 focus:border-emerald-600 focus:ring-emerald-500/20 bg-emerald-50/20'
+                      : 'border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20'
+                }`}
+              />
+              {isSearching ? (
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center text-emerald-600 pointer-events-none">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                </div>
+              ) : searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-700 cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              ) : null}
+            </div>
+
+            {/* Real-time 10-digit validation status badge */}
+            {searchValidation && (
+              <div className="px-1 text-[10px] font-bold flex items-center justify-between">
+                {searchValidation.type === 'PHONE' ? (
+                  searchValidation.status === 'INVALID_START' ? (
+                    <span className="text-red-600 flex items-center gap-1">
+                      ❌ {searchValidation.message}
+                    </span>
+                  ) : searchValidation.status === 'INCOMPLETE' ? (
+                    <span className="text-amber-700 flex items-center gap-1">
+                      📱 10-Digit Mobile Required: {searchValidation.message}
+                    </span>
+                  ) : (
+                    <span className="text-emerald-700 flex items-center gap-1">
+                      ✓ 10-Digit Mobile Verified: {filteredPasses.length} Pass(es) Found
+                    </span>
+                  )
+                ) : (
+                  <span className="text-slate-500 flex items-center gap-1">
+                    🔍 {searchValidation.message} ({filteredPasses.length} found)
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Dynamic Height Scrollable Box: Seamlessly fills remaining height with zero gap */}
@@ -653,9 +728,18 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                   <Phone className="w-6 h-6 opacity-60" />
                 </div>
                 <p className="text-xs text-slate-700 font-bold max-w-xs">
-                  {searchQuery ? `No pass found matching "${searchQuery}"` : 'No subscription passes issued yet today.'}
+                  {searchValidation?.type === 'PHONE' && searchValidation.status === 'VALID'
+                    ? `No pass registered with 10-digit mobile "${searchQuery}"`
+                    : searchQuery
+                      ? `No pass found matching "${searchQuery}"`
+                      : 'No subscription passes issued yet today.'}
                 </p>
-                {searchQuery && (
+                {searchValidation?.type === 'PHONE' && searchValidation.status === 'INCOMPLETE' && (
+                  <p className="text-[11px] text-amber-700 font-bold max-w-xs">
+                    Please enter full 10 digits to search by mobile number.
+                  </p>
+                )}
+                {searchQuery && searchValidation?.status !== 'INCOMPLETE' && (
                   <p className="text-[11px] text-slate-400 max-w-xs">
                     Please check the 10-digit mobile number or name spelling.
                   </p>
