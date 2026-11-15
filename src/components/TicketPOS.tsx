@@ -432,9 +432,9 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
           </div>
         </div>
 
-        {/* Recent Tickets History Card (Expanded height & showing more tickets) */}
-        <div className="bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/60 rounded-2xl p-3.5 sm:p-4 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex-1 flex flex-col justify-between space-y-2.5">
-          <div className="flex items-center justify-between text-xs font-black text-slate-700 uppercase tracking-wider border-b border-slate-100 pb-2">
+        {/* Recent Tickets History Card (Strictly fixed height with internal scroller only - page never expands) */}
+        <div className="bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/60 rounded-2xl p-3.5 sm:p-4 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex flex-col justify-between space-y-2.5 shrink-0">
+          <div className="flex items-center justify-between text-xs font-black text-slate-700 uppercase tracking-wider border-b border-slate-100 pb-2 shrink-0">
             <div className="flex items-center gap-1.5">
               <span>Recent Tickets</span>
               <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/70">
@@ -452,7 +452,8 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
             <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Re-Print</span>
           </div>
 
-          <div className="space-y-2 flex-1 min-h-[220px] max-h-[320px] sm:max-h-[360px] lg:max-h-[400px] xl:max-h-[440px] overflow-y-auto custom-scrollbar pr-1">
+          {/* Fixed-Height Scroller: strictly 205px. When >4 tickets exist, ONLY this box scrolls */}
+          <div className="space-y-2 h-[195px] sm:h-[205px] overflow-y-auto custom-scrollbar pr-1.5 shrink-0">
             {recentTickets.length === 0 ? (
               <p className="text-xs text-slate-400 py-6 text-center font-medium">No tickets issued yet today.</p>
             ) : (
@@ -494,7 +495,7 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
           <button
             type="button"
             onClick={() => setIsReportModalOpen(true)}
-            className="w-full py-2.5 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shrink-0"
+            className="w-full py-2 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shrink-0"
           >
             <FileText className="w-3.5 h-3.5" />
             <span>Full Report & Re-Print ({allTodayTickets.length})</span>

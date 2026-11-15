@@ -356,9 +356,9 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
           </form>
         </div>
 
-        {/* Right Sidebar: Active Passes List */}
-        <div className="lg:col-span-5 bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/70 rounded-2xl p-4 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex flex-col justify-between space-y-2">
-          <div className="flex items-center justify-between border-b border-emerald-950/10 pb-2">
+        {/* Right Sidebar: Active Passes List (Strictly fixed height with internal scroller only) */}
+        <div className="lg:col-span-5 bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/70 rounded-2xl p-4 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex flex-col justify-between space-y-2 shrink-0">
+          <div className="flex items-center justify-between border-b border-emerald-950/10 pb-2 shrink-0">
             <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
               <span>Active Passes Issued</span>
@@ -376,7 +376,8 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
             </span>
           </div>
 
-          <div className="space-y-2 overflow-y-auto custom-scrollbar flex-1 min-h-[220px] max-h-[340px] sm:max-h-[380px] pr-1">
+          {/* Strictly Fixed-Height Scrollable Box: Only this inner box scrolls, page never expands */}
+          <div className="space-y-2 overflow-y-auto custom-scrollbar h-[250px] sm:h-[260px] pr-1.5 shrink-0">
             {recentPasses.length === 0 ? (
               <div className="py-8 text-center space-y-1.5">
                 <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-100">

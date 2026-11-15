@@ -95,10 +95,10 @@ export function App() {
           onLogout={handleLogout}
         />
 
-        {/* Main Workspace Body */}
+        {/* Main Workspace Body: Desktop locked to viewport, no outer page scrolling */}
         <main className={`flex-1 no-print ${
           activeTab === 'counter' || activeTab === 'passes'
-            ? 'min-h-[calc(100vh-4.25rem)] flex flex-col justify-center px-3 sm:px-6 lg:px-8 py-2 md:py-3 overflow-y-auto custom-scrollbar'
+            ? 'h-[calc(100vh-4rem)] md:overflow-hidden overflow-y-auto flex flex-col justify-center px-3 sm:px-6 lg:px-8 py-2'
             : 'pb-28 md:pb-16 pt-4'
         }`}>
           {/* Admin Dashboard */}
