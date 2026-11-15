@@ -15,7 +15,8 @@ import {
   RefreshCw,
   Search,
   X,
-  AlertTriangle
+  AlertTriangle,
+  Clock
 } from 'lucide-react';
 import { LOGO_URL } from '../assets/logo';
 
@@ -54,6 +55,12 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
   }, [passType, validityDays, pricingRates]);
 
   const totalAmountInr = baseRateInr;
+
+  const estimatedValidThrough = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + (validityDays || 30));
+    return d.toISOString().split('T')[0];
+  }, [validityDays]);
 
   // Real-time phone number numeric validation
   const phoneValidation = useMemo(() => {
@@ -302,22 +309,22 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
   };
 
   return (
-    <div className="max-w-[1440px] xl:max-w-[1560px] mx-auto w-full px-2 sm:px-4 py-1 space-y-3">
+    <div className="max-w-[1440px] xl:max-w-[1560px] mx-auto w-full px-2 sm:px-4 py-1 space-y-2.5">
       {/* Compact Title Header with Logo & Mode Switcher */}
-      <div className="bg-gradient-to-br from-white via-white to-emerald-50/50 border border-white/70 rounded-2xl px-4 py-2.5 sm:py-3 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5 shrink-0">
+      <div className="bg-gradient-to-br from-white via-white to-emerald-50/50 border border-white/70 rounded-2xl px-4 py-2 sm:py-2.5 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5 shrink-0">
         <div className="flex items-center gap-3">
           <div className="relative group shrink-0">
             <div className="absolute -inset-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl blur-xs opacity-70 group-hover:opacity-100 transition" />
             <img
               src={LOGO_URL}
               alt="Logo"
-              className="relative w-10 h-10 object-contain rounded-xl border border-white/80 p-0.5 bg-white shadow-xs"
+              className="relative w-9 h-9 sm:w-10 sm:h-10 object-contain rounded-xl border border-white/80 p-0.5 bg-white shadow-xs"
             />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-tight">
-                Subscription Passes
+                Subscription Passes Desk
               </h1>
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 text-[10px] font-black uppercase tracking-wider">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
@@ -331,7 +338,7 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
         </div>
 
         {/* Pass Type Switcher Tabs with Vibrant Gradients */}
-        <div className="w-full sm:w-auto grid grid-cols-2 bg-slate-100/90 backdrop-blur-md p-1 rounded-xl border border-slate-200/80 shadow-2xs gap-1">
+        <div className="w-full sm:w-auto grid grid-cols-2 bg-slate-100/90 backdrop-blur-md p-1 rounded-xl border border-slate-200/80 shadow-2xs gap-1 shrink-0">
           <button
             type="button"
             onClick={() => setPassType('MONTHLY')}
@@ -357,24 +364,28 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-stretch">
-        {/* Pass Issuance Form */}
-        <div className="lg:col-span-7 bg-gradient-to-br from-white via-white to-emerald-50/30 border border-white/70 rounded-2xl p-4 sm:p-5 shadow-lg shadow-emerald-950/15 backdrop-blur-xl flex flex-col justify-between">
-          <form onSubmit={handleGeneratePass} className="flex-1 flex flex-col justify-between space-y-3">
-            <div className="space-y-3">
-              {/* Header Badge */}
-              <div className="flex items-center justify-between border-b border-emerald-950/10 pb-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-xs">
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
-                      New {passType === 'YEARLY' ? 'Yearly Pass (1 Year)' : `Monthly Pass (${validityDays === 30 ? '1 Month' : validityDays === 60 ? '2 Months' : '3 Months'})`}
-                    </h2>
-                  </div>
+      {/* Main 2-Column Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-start">
+        {/* Pass Issuance Form (Left Column) */}
+        <div className="lg:col-span-7 bg-gradient-to-br from-white via-white to-emerald-50/30 border border-white/70 rounded-2xl p-3.5 sm:p-4 shadow-lg shadow-emerald-950/15 backdrop-blur-xl">
+          <form onSubmit={handleGeneratePass} className="space-y-3">
+            {/* Header Badge */}
+            <div className="flex items-center justify-between border-b border-emerald-950/10 pb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-xs">
+                  <ShieldCheck className="w-4 h-4" />
                 </div>
+                <div>
+                  <h2 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
+                    New {passType === 'YEARLY' ? 'Yearly Pass (1 Year)' : `Monthly Pass (${validityDays === 30 ? '1 Month' : validityDays === 60 ? '2 Months' : '3 Months'})`}
+                  </h2>
+                </div>
+              </div>
 
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] font-mono text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 font-bold">
+                  Exp: {estimatedValidThrough}
+                </span>
                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
                   passType === 'YEARLY'
                     ? 'bg-purple-100 text-purple-800 border border-purple-200'
@@ -383,236 +394,240 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                   {passType}
                 </span>
               </div>
+            </div>
 
-              {/* Holder Full Name & Phone side-by-side to save height */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div>
-                  <label className="block text-[11px] uppercase tracking-wider text-slate-700 font-black mb-1 flex items-center gap-1">
-                    <User className="w-3 h-3 text-emerald-600" />
-                    <span>Pass Holder Name *</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Ramesh Kumar Sharma"
-                    value={holderName}
-                    onChange={e => setHolderName(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-slate-900 font-bold placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs sm:text-sm shadow-2xs transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] uppercase tracking-wider text-slate-700 font-black mb-1 flex items-center justify-between">
-                    <span className="flex items-center gap-1">
-                      <Phone className="w-3 h-3 text-emerald-600" />
-                      <span>Pass Holder Mobile Number *</span>
-                    </span>
-                    <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
-                      phoneValidation.isValid
-                        ? 'text-emerald-800 bg-emerald-50 border-emerald-300'
-                        : 'text-amber-800 bg-amber-50 border-amber-300'
-                    }`}>
-                      {phoneValidation.isValid ? '✓ 10 Digits' : 'Mandatory'}
-                    </span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="tel"
-                      inputMode="numeric"
-                      pattern="[6-9][0-9]{9}"
-                      required
-                      maxLength={10}
-                      placeholder="e.g. 9876543210 (10 Digits)"
-                      value={holderPhone}
-                      onChange={e => {
-                        const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
-                        setHolderPhone(digits);
-                      }}
-                      className={`w-full px-3 py-2 bg-white border rounded-xl text-slate-900 font-bold placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-2 text-xs sm:text-sm shadow-2xs transition font-mono ${
-                        existingActivePass || (holderPhone.length > 0 && !phoneValidation.isValid && phoneValidation.status !== 'INCOMPLETE')
-                          ? 'border-red-400 focus:ring-red-400 bg-red-50/20'
-                          : phoneValidation.isValid
-                            ? 'border-emerald-500 focus:ring-emerald-500 bg-emerald-50/20'
-                            : 'border-slate-200 focus:ring-emerald-500'
-                      }`}
-                    />
-                    {isCheckingPhone ? (
-                      <div className="absolute right-2.5 top-2.5 text-emerald-600">
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      </div>
-                    ) : phoneValidation.isValid && !existingActivePass ? (
-                      <div className="absolute right-2.5 top-2.5 text-emerald-600 font-black text-xs">
-                        ✓
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {/* Real-time Validation Helper Message */}
-                  <div className="mt-1">
-                    {phoneValidation.status === 'EMPTY' && (
-                      <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
-                        <span className="text-red-500">*</span> Enter 10-digit mobile number (starts with 6, 7, 8, 9)
-                      </span>
-                    )}
-                    {phoneValidation.status === 'INVALID_START' && (
-                      <span className="text-[10px] text-red-600 font-bold flex items-center gap-1">
-                        ❌ Invalid: Mobile number must start with 6, 7, 8, or 9
-                      </span>
-                    )}
-                    {phoneValidation.status === 'INCOMPLETE' && (
-                      <span className="text-[10px] text-amber-700 font-bold flex items-center gap-1">
-                        ⚠️ {phoneValidation.message}
-                      </span>
-                    )}
-                    {phoneValidation.status === 'VALID' && !existingActivePass && (
-                      <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
-                        ✓ Valid 10-Digit Mobile Number
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Active Pass Warning Banner */}
-              {existingActivePass && (
-                <div className="bg-amber-50/90 border-2 border-amber-300 rounded-xl p-3 flex items-start gap-2.5 text-amber-950 text-xs shadow-xs animate-in fade-in">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="flex-1 space-y-1">
-                    <div className="font-black text-amber-900 flex items-center justify-between">
-                      <span>Active Pass Already Exists for this Mobile!</span>
-                      <span className="text-[10px] font-mono bg-amber-200/90 px-1.5 py-0.2 rounded text-amber-950 font-bold">
-                        {existingActivePass.pass_number}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-amber-800 leading-snug">
-                      Holder: <strong>{existingActivePass.holder_name}</strong> • Valid Through:{' '}
-                      <strong className="text-red-700 font-mono font-black">{existingActivePass.valid_through}</strong>
-                    </p>
-                    <div className="pt-0.5 flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleReprint(existingActivePass)}
-                        className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-black flex items-center gap-1 shadow-xs cursor-pointer transition"
-                      >
-                        <Printer className="w-3 h-3" /> Re-Print Existing Pass
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Validity Duration Quick Tap Chips */}
+            {/* Holder Full Name & Phone side-by-side */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <div>
-                <label className="block text-[11px] uppercase tracking-wider text-slate-700 font-black mb-1.5 flex items-center gap-1">
-                  <Calendar className="w-3 h-3 text-emerald-600" />
-                  <span>Select Validity Duration</span>
+                <label className="block text-[11px] uppercase tracking-wider text-slate-700 font-black mb-1 flex items-center gap-1">
+                  <User className="w-3 h-3 text-emerald-600" />
+                  <span>Pass Holder Name *</span>
                 </label>
-
-                {passType === 'MONTHLY' ? (
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { days: 30, label: '1 Month', price: '₹300' },
-                      { days: 60, label: '2 Months', price: '₹600' },
-                      { days: 90, label: '3 Months', price: '₹900' },
-                    ].map(plan => {
-                      const isSelected = validityDays === plan.days;
-                      return (
-                        <button
-                          key={plan.days}
-                          type="button"
-                          onClick={() => setValidityDays(plan.days)}
-                          className={`py-1.5 px-2 rounded-xl border text-center transition-all cursor-pointer ${
-                            isSelected
-                              ? 'bg-gradient-to-br from-emerald-600 to-teal-600 text-white border-emerald-600 shadow-md shadow-emerald-600/30 ring-1 ring-emerald-400'
-                              : 'bg-white hover:bg-emerald-50/50 border-slate-200 text-slate-700'
-                          }`}
-                        >
-                          <div className={`text-xs font-black ${isSelected ? 'text-white' : 'text-slate-900'}`}>
-                            {plan.label}
-                          </div>
-                          <div className={`text-[10px] font-black mt-0.5 ${
-                            isSelected ? 'text-emerald-100' : 'text-emerald-700'
-                          }`}>
-                            {plan.price}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="bg-purple-50/80 border border-purple-200 rounded-xl p-2.5 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold text-[10px]">
-                        1Y
-                      </div>
-                      <div className="text-xs font-black text-slate-900">365 Days Regular Entry (Full Year)</div>
-                    </div>
-                    <span className="text-xs font-black text-purple-900 bg-white px-2.5 py-0.5 rounded-lg border border-purple-200">
-                      ₹3,100.00
-                    </span>
-                  </div>
-                )}
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Ramesh Kumar Sharma"
+                  value={holderName}
+                  onChange={e => setHolderName(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-slate-900 font-bold placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs sm:text-sm shadow-2xs transition"
+                />
               </div>
 
-              {/* Payment Mode Selector */}
-              <div className="space-y-1.5">
-                <label className="block text-[11px] uppercase tracking-wider text-slate-700 font-black flex items-center gap-1">
-                  <Banknote className="w-3 h-3 text-emerald-600" />
-                  <span>Payment Mode</span>
+              <div>
+                <label className="block text-[11px] uppercase tracking-wider text-slate-700 font-black mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Phone className="w-3 h-3 text-emerald-600" />
+                    <span>Mobile Number *</span>
+                  </span>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
+                    phoneValidation.isValid
+                      ? 'text-emerald-800 bg-emerald-50 border-emerald-300'
+                      : 'text-amber-800 bg-amber-50 border-amber-300'
+                  }`}>
+                    {phoneValidation.isValid ? '✓ 10 Digits' : 'Mandatory'}
+                  </span>
                 </label>
+                <div className="relative">
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[6-9][0-9]{9}"
+                    required
+                    maxLength={10}
+                    placeholder="e.g. 9876543210 (10 Digits)"
+                    value={holderPhone}
+                    onChange={e => {
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setHolderPhone(digits);
+                    }}
+                    className={`w-full px-3 py-2 bg-white border rounded-xl text-slate-900 font-bold placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-2 text-xs sm:text-sm shadow-2xs transition font-mono ${
+                      existingActivePass || (holderPhone.length > 0 && !phoneValidation.isValid && phoneValidation.status !== 'INCOMPLETE')
+                        ? 'border-red-400 focus:ring-red-400 bg-red-50/20'
+                        : phoneValidation.isValid
+                          ? 'border-emerald-500 focus:ring-emerald-500 bg-emerald-50/20'
+                          : 'border-slate-200 focus:ring-emerald-500'
+                    }`}
+                  />
+                  {isCheckingPhone ? (
+                    <div className="absolute right-2.5 top-2.5 text-emerald-600">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    </div>
+                  ) : phoneValidation.isValid && !existingActivePass ? (
+                    <div className="absolute right-2.5 top-2.5 text-emerald-600 font-black text-xs">
+                      ✓
+                    </div>
+                  ) : null}
+                </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMode('CASH')}
-                    className={`py-3 sm:py-3.5 px-4 rounded-2xl font-black text-xs sm:text-sm border-2 flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
-                      paymentMode === 'CASH'
-                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400 scale-[1.01]'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs'
-                    }`}
-                  >
-                    <Banknote className="w-5 h-5 shrink-0" />
-                    <span>1. Cash</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMode('UPI')}
-                    className={`py-3 sm:py-3.5 px-4 rounded-2xl font-black text-xs sm:text-sm border-2 flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
-                      paymentMode === 'UPI'
-                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-500 shadow-md shadow-blue-600/30 ring-2 ring-blue-400 scale-[1.01]'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs'
-                    }`}
-                  >
-                    <QrCode className="w-5 h-5 shrink-0" />
-                    <span>2. UPI</span>
-                  </button>
+                {/* Validation helper */}
+                <div className="mt-1">
+                  {phoneValidation.status === 'EMPTY' && (
+                    <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
+                      <span className="text-red-500">*</span> Enter 10-digit mobile number (starts with 6, 7, 8, 9)
+                    </span>
+                  )}
+                  {phoneValidation.status === 'INVALID_START' && (
+                    <span className="text-[10px] text-red-600 font-bold flex items-center gap-1">
+                      ❌ Invalid: Mobile number must start with 6, 7, 8, or 9
+                    </span>
+                  )}
+                  {phoneValidation.status === 'INCOMPLETE' && (
+                    <span className="text-[10px] text-amber-700 font-bold flex items-center gap-1">
+                      ⚠️ {phoneValidation.message}
+                    </span>
+                  )}
+                  {phoneValidation.status === 'VALID' && !existingActivePass && (
+                    <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
+                      ✓ Valid 10-Digit Mobile Number
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Total and Submit Hero Bar (Anchored at Bottom) */}
-            <div className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-700 p-3.5 sm:p-4 rounded-2xl shadow-lg border border-emerald-600/50 flex items-center justify-between gap-3 text-white mt-2">
+            {/* Active Pass Warning Banner */}
+            {existingActivePass && (
+              <div className="bg-amber-50/90 border-2 border-amber-300 rounded-xl p-3 flex items-start gap-2.5 text-amber-950 text-xs shadow-xs animate-in fade-in">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="flex-1 space-y-1">
+                  <div className="font-black text-amber-900 flex items-center justify-between">
+                    <span>Active Pass Already Exists for this Mobile!</span>
+                    <span className="text-[10px] font-mono bg-amber-200/90 px-1.5 py-0.2 rounded text-amber-950 font-bold">
+                      {existingActivePass.pass_number}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-snug">
+                    Holder: <strong>{existingActivePass.holder_name}</strong> • Valid Through:{' '}
+                    <strong className="text-red-700 font-mono font-black">{existingActivePass.valid_through}</strong>
+                  </p>
+                  <div className="pt-0.5 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleReprint(existingActivePass)}
+                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-black flex items-center gap-1 shadow-xs cursor-pointer transition"
+                    >
+                      <Printer className="w-3 h-3" /> Re-Print Existing Pass
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Validity Duration */}
+            <div>
+              <label className="block text-[11px] uppercase tracking-wider text-slate-700 font-black mb-1.5 flex items-center gap-1">
+                <Calendar className="w-3 h-3 text-emerald-600" />
+                <span>Select Validity Duration</span>
+              </label>
+
+              {passType === 'MONTHLY' ? (
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { days: 30, label: '1 Month', price: '₹300' },
+                    { days: 60, label: '2 Months', price: '₹600' },
+                    { days: 90, label: '3 Months', price: '₹900' },
+                  ].map(plan => {
+                    const isSelected = validityDays === plan.days;
+                    return (
+                      <button
+                        key={plan.days}
+                        type="button"
+                        onClick={() => setValidityDays(plan.days)}
+                        className={`py-2 px-2 rounded-xl border text-center transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-gradient-to-br from-emerald-600 to-teal-600 text-white border-emerald-600 shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400'
+                            : 'bg-white hover:bg-emerald-50/50 border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        <div className={`text-xs font-black ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                          {plan.label}
+                        </div>
+                        <div className={`text-[11px] font-black mt-0.5 ${
+                          isSelected ? 'text-emerald-100' : 'text-emerald-700'
+                        }`}>
+                          {plan.price}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="bg-purple-50/80 border border-purple-200 rounded-xl p-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold text-[10px]">
+                      1Y
+                    </div>
+                    <div className="text-xs font-black text-slate-900">365 Days Regular Entry (Full Year)</div>
+                  </div>
+                  <span className="text-xs font-black text-purple-900 bg-white px-2.5 py-0.5 rounded-lg border border-purple-200">
+                    ₹3,100.00
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Payment Mode Selector */}
+            <div className="space-y-1.5">
+              <label className="block text-[11px] uppercase tracking-wider text-slate-700 font-black flex items-center gap-1">
+                <Banknote className="w-3 h-3 text-emerald-600" />
+                <span>Payment Mode</span>
+              </label>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode('CASH')}
+                  className={`py-2.5 sm:py-3 px-3 rounded-xl font-black text-xs sm:text-sm border-2 flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    paymentMode === 'CASH'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400'
+                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs'
+                  }`}
+                >
+                  <Banknote className="w-4 h-4 shrink-0" />
+                  <span>1. Cash</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMode('UPI')}
+                  className={`py-2.5 sm:py-3 px-3 rounded-xl font-black text-xs sm:text-sm border-2 flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    paymentMode === 'UPI'
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-500 shadow-md shadow-blue-600/30 ring-2 ring-blue-400'
+                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs'
+                  }`}
+                >
+                  <QrCode className="w-4 h-4 shrink-0" />
+                  <span>2. UPI</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Pass Rules Strip */}
+            <div className="bg-slate-50 p-2 sm:p-2.5 rounded-xl border border-slate-200/80 flex items-center justify-between text-[11px] text-slate-600">
+              <div className="flex items-center gap-1.5 font-medium">
+                <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>2 Visits / Day • 10-Min Scan Cooldown</span>
+              </div>
+              <span className="font-bold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200 text-[10px]">
+                1 Named Person
+              </span>
+            </div>
+
+            {/* Total Fee & Submit Hero Bar */}
+            <div className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-700 p-3 sm:p-3.5 rounded-2xl shadow-lg border border-emerald-600/50 flex items-center justify-between gap-3 text-white">
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-emerald-200 font-extrabold">Total Fee</div>
                 <div className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
                   ₹{totalAmountInr.toFixed(2)}
                 </div>
-                <div className="text-[11px] text-emerald-100 font-semibold">
-                  Pass Validity: {passType === 'MONTHLY' ? `${validityDays} Days (${validityDays === 30 ? '1 Month' : validityDays === 60 ? '2 Months' : '3 Months'})` : '365 Days (1 Year Regular Entry)'}
+                <div className="text-[10px] sm:text-[11px] text-emerald-100 font-medium">
+                  Valid Through: <strong className="font-mono text-white">{estimatedValidThrough}</strong>
                 </div>
               </div>
 
               <button
                 type="submit"
                 disabled={isGenerating || !phoneValidation.isValid || existingActivePass !== null}
-                className="px-6 py-3 bg-white hover:bg-emerald-50 active:scale-95 text-emerald-950 font-black rounded-xl shadow-lg shadow-black/20 flex items-center justify-center gap-1.5 text-xs sm:text-sm disabled:opacity-50 transition cursor-pointer"
-                title={
-                  existingActivePass
-                    ? 'Cannot issue pass: Active pass already exists for this mobile number'
-                    : !phoneValidation.isValid
-                      ? 'Please enter a valid 10-digit mobile number'
-                      : undefined
-                }
+                className="px-5 sm:px-6 py-2.5 sm:py-3 bg-white hover:bg-emerald-50 active:scale-95 text-emerald-950 font-black rounded-xl shadow-lg shadow-black/20 flex items-center justify-center gap-1.5 text-xs sm:text-sm disabled:opacity-50 transition cursor-pointer"
               >
                 <Printer className="w-4 h-4 text-emerald-700" />
                 <span>
@@ -629,9 +644,9 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
           </form>
         </div>
 
-        {/* Right Sidebar: Active Passes List */}
-        <div className="lg:col-span-5 bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/70 rounded-2xl p-4 sm:p-5 shadow-lg shadow-emerald-950/15 backdrop-blur-xl flex flex-col h-full space-y-3">
-          <div className="flex items-center justify-between border-b border-emerald-950/10 pb-2.5 shrink-0">
+        {/* Right Column: Active Passes List */}
+        <div className="lg:col-span-5 bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/70 rounded-2xl p-3.5 sm:p-4 shadow-lg shadow-emerald-950/15 backdrop-blur-xl space-y-2.5">
+          <div className="flex items-center justify-between border-b border-emerald-950/10 pb-2 shrink-0">
             <h3 className="text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
               <span>Active Passes Issued</span>
@@ -644,13 +659,13 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
             </h3>
-            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/70">
+            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/70">
               {filteredPasses.length} {searchQuery ? 'Found' : 'Total'}
             </span>
           </div>
 
           {/* Search by 10-Digit Mobile Number / Name Filter */}
-          <div className="space-y-1.5 shrink-0">
+          <div className="space-y-1 shrink-0">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                 <Search className="w-4 h-4 text-emerald-600" />
@@ -659,7 +674,7 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                 type="text"
                 inputMode={/^\d*$/.test(searchQuery) ? 'numeric' : 'text'}
                 maxLength={/^\d+$/.test(searchQuery.trim()) ? 10 : 50}
-                placeholder="Search by 10-Digit Mobile # (e.g. 98...) or Name..."
+                placeholder="Search by 10-Digit Mobile # or Name to Re-Print..."
                 value={searchQuery}
                 onChange={e => {
                   const val = e.target.value;
@@ -694,7 +709,7 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
             </div>
 
             {/* Real-time 10-digit validation status badge */}
-            {searchValidation && (
+            {searchValidation && searchQuery && (
               <div className="px-1 text-[10px] font-bold flex items-center justify-between">
                 {searchValidation.type === 'PHONE' ? (
                   searchValidation.status === 'INVALID_START' ? (
@@ -719,12 +734,12 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
             )}
           </div>
 
-          {/* Dynamic Height Scrollable Box: Seamlessly fills remaining height with zero gap */}
-          <div className="flex-1 min-h-[280px] max-h-[460px] overflow-y-auto custom-scrollbar space-y-2 pr-1">
+          {/* Calibrated Scrollable Box: Matches Left Card height and pt-1 prevents clipping */}
+          <div className="h-[310px] sm:h-[340px] overflow-y-auto custom-scrollbar space-y-2 pr-1 pt-1">
             {filteredPasses.length === 0 ? (
-              <div className="h-full min-h-[220px] flex flex-col items-center justify-center py-8 text-center space-y-2">
-                <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center border border-slate-200 shadow-2xs">
-                  <Phone className="w-6 h-6 opacity-60" />
+              <div className="h-full flex flex-col items-center justify-center py-6 text-center space-y-2">
+                <div className="w-10 h-10 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center border border-slate-200 shadow-2xs">
+                  <Phone className="w-5 h-5 opacity-60" />
                 </div>
                 <p className="text-xs text-slate-700 font-bold max-w-xs">
                   {searchValidation?.type === 'PHONE' && searchValidation.status === 'VALID'
@@ -733,79 +748,76 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                       ? `No pass found matching "${searchQuery}"`
                       : 'No subscription passes issued yet today.'}
                 </p>
-                {searchValidation?.type === 'PHONE' && searchValidation.status === 'INCOMPLETE' && (
-                  <p className="text-[11px] text-amber-700 font-bold max-w-xs">
-                    Please enter full 10 digits to search by mobile number.
-                  </p>
-                )}
-                {searchQuery && searchValidation?.status !== 'INCOMPLETE' && (
-                  <p className="text-[11px] text-slate-400 max-w-xs">
-                    Please check the 10-digit mobile number or name spelling.
-                  </p>
-                )}
               </div>
             ) : (
-              filteredPasses.map(pass => (
-                <div
-                  key={pass.id}
-                  className="bg-white hover:bg-emerald-50/20 p-3 rounded-xl border border-slate-200/90 hover:border-emerald-400 transition-all duration-150 space-y-2 group shadow-2xs hover:shadow-xs"
-                >
-                  <div className="flex items-center justify-between">
-                    {(() => {
-                      const isYearly = pass.pass_type === 'YEARLY';
-                      const pName = (pass.plan_name || '').toLowerCase();
-                      const amt = pass.amount_paise || 0;
-                      let badgeLabel = '1 Month (30D)';
-                      let badgeStyle = 'bg-emerald-100 text-emerald-800 border-emerald-200';
-                      if (isYearly) {
-                        badgeLabel = '1 Year (365D)';
-                        badgeStyle = 'bg-purple-100 text-purple-800 border-purple-200';
-                      } else if (pName.includes('3 month') || amt === 90000) {
-                        badgeLabel = '3 Months (90D)';
-                        badgeStyle = 'bg-indigo-100 text-indigo-800 border-indigo-200';
-                      } else if (pName.includes('2 month') || amt === 60000) {
-                        badgeLabel = '2 Months (60D)';
-                        badgeStyle = 'bg-blue-100 text-blue-800 border-blue-200';
-                      }
-                      return (
-                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${badgeStyle}`}>
+              filteredPasses.map(pass => {
+                const isYearly = pass.pass_type === 'YEARLY';
+                const pName = (pass.plan_name || '').toLowerCase();
+                const amt = pass.amount_paise || 0;
+                let badgeLabel = '1 Month (30D)';
+                let badgeStyle = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+                if (isYearly) {
+                  badgeLabel = '1 Year (365D)';
+                  badgeStyle = 'bg-purple-100 text-purple-800 border-purple-200';
+                } else if (pName.includes('3 month') || amt === 90000) {
+                  badgeLabel = '3 Months (90D)';
+                  badgeStyle = 'bg-indigo-100 text-indigo-800 border-indigo-200';
+                } else if (pName.includes('2 month') || amt === 60000) {
+                  badgeLabel = '2 Months (60D)';
+                  badgeStyle = 'bg-blue-100 text-blue-800 border-blue-200';
+                }
+
+                return (
+                  <div
+                    key={pass.id}
+                    className="bg-white hover:bg-emerald-50/30 p-2.5 sm:p-3 rounded-xl border border-slate-200 hover:border-emerald-400 transition shadow-2xs hover:shadow-xs space-y-1.5"
+                  >
+                    {/* Line 1: Badge + Name + Amount */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border shrink-0 ${badgeStyle}`}>
                           {badgeLabel}
                         </span>
-                      );
-                    })()}
-                    <span className="font-mono text-xs font-black text-slate-700">{pass.pass_number}</span>
-                  </div>
-
-                  <div className="flex justify-between items-baseline gap-2">
-                    <div className="min-w-0 flex-1">
-                      <span className="font-black text-slate-900 text-sm flex items-center gap-1.5 truncate">
-                        <UserCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span className="truncate">{pass.holder_name}</span>
+                        <span className="font-black text-slate-900 text-xs sm:text-sm truncate flex items-center gap-1">
+                          <UserCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span className="truncate">{pass.holder_name}</span>
+                        </span>
+                      </div>
+                      <span className="text-sm sm:text-base font-black text-emerald-800 shrink-0 font-mono">
+                        ₹{((pass.amount_paise || 0) / 100).toFixed(0)}
                       </span>
-                      {pass.holder_phone && (
-                        <div className="text-[11px] text-slate-600 font-mono font-bold flex items-center gap-1.5 mt-1 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200/70 w-fit">
-                          <Phone className="w-3 h-3 text-emerald-600 shrink-0" />
-                          <span>{pass.holder_phone}</span>
-                        </div>
-                      )}
                     </div>
-                    <span className="text-base font-black text-emerald-800 shrink-0">
-                      ₹{((pass.amount_paise || 0) / 100).toFixed(2)}
-                    </span>
-                  </div>
 
-                  <div className="text-[11px] text-slate-500 font-medium flex justify-between items-center pt-1.5 border-t border-slate-100">
-                    <span className="font-medium text-slate-600">Valid: <strong className="font-mono font-bold text-slate-800">{pass.valid_through}</strong></span>
-                    <button
-                      type="button"
-                      onClick={() => handleReprint(pass)}
-                      className="px-2.5 py-1 bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 rounded-lg text-[11px] font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-                    >
-                      <Printer className="w-3 h-3" /> Re-Print
-                    </button>
+                    {/* Line 2: Pass Number + Mobile Badge + Expiry + Re-Print */}
+                    <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-100 text-[11px]">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="font-mono text-[10px] text-slate-500 font-bold truncate">
+                          {pass.pass_number}
+                        </span>
+                        {pass.holder_phone && (
+                          <span className="font-mono text-[10px] text-slate-700 bg-slate-100 px-1.5 py-0.2 rounded font-bold shrink-0 flex items-center gap-0.5">
+                            <Phone className="w-2.5 h-2.5 text-emerald-600" />
+                            {pass.holder_phone}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          Valid: <strong className="font-mono font-bold text-slate-800">{pass.valid_through}</strong>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleReprint(pass)}
+                          className="px-2 py-0.5 bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 rounded-md text-[10px] font-black flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                        >
+                          <Printer className="w-3 h-3" /> Re-Print
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
