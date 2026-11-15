@@ -14,7 +14,8 @@ import {
   Phone,
   RefreshCw,
   Search,
-  X
+  X,
+  AlertTriangle
 } from 'lucide-react';
 import { LOGO_URL } from '../assets/logo';
 
@@ -37,6 +38,10 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
   const [searchQuery, setSearchQuery] = useState('');
   const [cloudSearchResults, setCloudSearchResults] = useState<Pass[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+
+  // Active pass duplicate check for entered mobile number
+  const [existingActivePass, setExistingActivePass] = useState<Pass | null>(null);
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false);
 
   // Dynamic base rate calculation from Admin settings:
   const baseRateInr = useMemo(() => {
@@ -109,6 +114,32 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
     }
   }, [searchQuery]);
 
+  // Check if mobile number already has an active, non-expired pass
+  useEffect(() => {
+    const cleanDigits = holderPhone.replace(/\D/g, '').slice(-10);
+    if (cleanDigits.length === 10) {
+      let isMounted = true;
+      setIsCheckingPhone(true);
+      dbService
+        .checkActivePassByPhone(cleanDigits)
+        .then(found => {
+          if (isMounted) {
+            setExistingActivePass(found);
+            setIsCheckingPhone(false);
+          }
+        })
+        .catch(() => {
+          if (isMounted) setIsCheckingPhone(false);
+        });
+      return () => {
+        isMounted = false;
+      };
+    } else {
+      setExistingActivePass(null);
+      setIsCheckingPhone(false);
+    }
+  }, [holderPhone]);
+
   // Combined passes matching search query
   const filteredPasses = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -138,7 +169,23 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
   const handleGeneratePass = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!holderName.trim()) {
-      alert('Please enter Pass Holder Name');
+      alert('Please enter Pass Holder Name.');
+      return;
+    }
+
+    const cleanDigits = holderPhone.replace(/\D/g, '').slice(-10);
+    if (cleanDigits.length !== 10) {
+      alert('Mobile Number is mandatory! Please enter a valid 10-digit mobile number.');
+      return;
+    }
+
+    // Verify if an active pass is already registered
+    const activePass = await dbService.checkActivePassByPhone(cleanDigits);
+    if (activePass) {
+      setExistingActivePass(activePass);
+      alert(
+        `Active pass (${activePass.pass_number}) already exists for mobile number ${cleanDigits} valid until ${activePass.valid_through}!\n\nNew pass cannot be issued until the existing pass expires. You can re-print the existing pass.`
+      );
       return;
     }
 
@@ -147,7 +194,7 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
       const pass = await dbService.issuePass({
         pass_type: passType,
         holder_name: holderName.trim(),
-        holder_phone: holderPhone.trim() || undefined,
+        holder_phone: cleanDigits,
         people_allowed: 1,
         payment_method: paymentMode,
         duration_days: validityDays,
@@ -168,13 +215,14 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
 
       setHolderName('');
       setHolderPhone('');
+      setExistingActivePass(null);
       const durationLabel = passType === 'MONTHLY'
         ? (validityDays === 30 ? '1 Month (₹300)' : validityDays === 60 ? '2 Months (₹600)' : '3 Months (₹900)')
         : '1 Year (₹3,100)';
       alert(`Success! ${passType === 'MONTHLY' ? 'Monthly Pass' : 'Yearly Pass'} [${durationLabel}] issued and sent to printer.`);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert('Failed to issue pass. Please check your connection.');
+      alert(err.message || 'Failed to issue pass. Please check your connection.');
     } finally {
       setIsGenerating(false);
     }
@@ -292,19 +340,71 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                 </div>
 
                 <div>
-                  <label className="block text-[11px] uppercase tracking-wider text-slate-700 font-black mb-1 flex items-center gap-1">
-                    <Phone className="w-3 h-3 text-emerald-600" />
-                    <span>Mobile Number</span>
+                  <label className="block text-[11px] uppercase tracking-wider text-slate-700 font-black mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <Phone className="w-3 h-3 text-emerald-600" />
+                      <span>Pass Holder Mobile Number *</span>
+                    </span>
+                    <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                      Mandatory
+                    </span>
                   </label>
-                  <input
-                    type="tel"
-                    placeholder="e.g. 98XXXXXXXX (Optional)"
-                    value={holderPhone}
-                    onChange={e => setHolderPhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-slate-900 font-bold placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-emerald-500 text-xs sm:text-sm shadow-2xs transition"
-                  />
+                  <div className="relative">
+                    <input
+                      type="tel"
+                      required
+                      maxLength={10}
+                      placeholder="10-digit Mobile (e.g. 98...)"
+                      value={holderPhone}
+                      onChange={e => {
+                        const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setHolderPhone(digits);
+                      }}
+                      className={`w-full px-3 py-2 bg-white border rounded-xl text-slate-900 font-bold placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-2 text-xs sm:text-sm shadow-2xs transition font-mono ${
+                        existingActivePass
+                          ? 'border-red-400 focus:ring-red-400 bg-red-50/20'
+                          : holderPhone.length === 10
+                            ? 'border-emerald-500 focus:ring-emerald-500'
+                            : 'border-slate-200 focus:ring-emerald-500'
+                      }`}
+                    />
+                    {isCheckingPhone && (
+                      <div className="absolute right-2.5 top-2.5 text-emerald-600">
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
+
+              {/* Active Pass Warning Banner */}
+              {existingActivePass && (
+                <div className="bg-amber-50/90 border-2 border-amber-300 rounded-xl p-3 flex items-start gap-2.5 text-amber-950 text-xs shadow-xs animate-in fade-in">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-1">
+                    <div className="font-black text-amber-900 flex items-center justify-between">
+                      <span>Active Pass Already Exists for this Mobile!</span>
+                      <span className="text-[10px] font-mono bg-amber-200/90 px-1.5 py-0.2 rounded text-amber-950 font-bold">
+                        {existingActivePass.pass_number}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-amber-800 leading-snug">
+                      Holder: <strong>{existingActivePass.holder_name}</strong> • Valid Through:{' '}
+                      <strong className="text-red-700 font-mono font-black">{existingActivePass.valid_through}</strong>.
+                      Jab tak is pass ki validity khatam nahi hoti, tab tak naya pass generate nahi ho sakta.
+                    </p>
+                    <div className="pt-0.5 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleReprint(existingActivePass)}
+                        className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-black flex items-center gap-1 shadow-xs cursor-pointer transition"
+                      >
+                        <Printer className="w-3 h-3" /> Re-Print Existing Pass
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Validity Duration Quick Tap Chips */}
               <div>
@@ -409,11 +509,18 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
 
               <button
                 type="submit"
-                disabled={isGenerating}
+                disabled={isGenerating || existingActivePass !== null}
                 className="px-6 py-3 bg-white hover:bg-emerald-50 active:scale-95 text-emerald-950 font-black rounded-xl shadow-lg shadow-black/20 flex items-center justify-center gap-1.5 text-xs sm:text-sm disabled:opacity-50 transition cursor-pointer"
+                title={existingActivePass ? 'Cannot issue pass: Active pass already exists for this mobile number' : undefined}
               >
                 <Printer className="w-4 h-4 text-emerald-700" />
-                <span>{isGenerating ? 'Generating...' : 'Issue & Print Pass'}</span>
+                <span>
+                  {isGenerating
+                    ? 'Generating...'
+                    : existingActivePass
+                      ? 'Active Pass Exists'
+                      : 'Issue & Print Pass'}
+                </span>
               </button>
             </div>
           </form>

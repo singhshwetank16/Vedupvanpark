@@ -1170,12 +1170,26 @@ class VupDatabaseService {
   async issuePass(params: {
     pass_type: 'MONTHLY' | 'YEARLY' | 'FAMILY';
     holder_name: string;
-    holder_phone?: string;
+    holder_phone: string;
     people_allowed: number;
     payment_method: PaymentMethod;
     duration_days?: number;
     price_paise?: number;
   }): Promise<Pass> {
+    // 0. Strict validation: Mobile number is mandatory (10 digits)
+    const cleanPhone = (params.holder_phone || '').replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || cleanPhone.length !== 10) {
+      throw new Error('Valid 10-digit mobile number is mandatory for subscription passes.');
+    }
+
+    // 1. Strict validation: No duplicate active pass until existing pass validity expires
+    const existingActivePass = await this.checkActivePassByPhone(cleanPhone);
+    if (existingActivePass) {
+      throw new Error(
+        `Mobile number ${cleanPhone} already has an ACTIVE pass (${existingActivePass.pass_number}) valid until ${existingActivePass.valid_through}! Cannot issue a new pass until the current pass expires.`
+      );
+    }
+
     const plan = DEFAULT_PLANS.find(p => p.plan_type === params.pass_type) || DEFAULT_PLANS[1];
 
     // Calculate amount based on dynamic pricing rates:
@@ -1215,7 +1229,7 @@ class VupDatabaseService {
       order_reference: orderRef,
       item_type: params.pass_type,
       purchaser_name: params.holder_name,
-      purchaser_phone: params.holder_phone,
+      purchaser_phone: cleanPhone,
       persons_count: params.people_allowed,
       amount_paise: amountPaise,
       payment_method: params.payment_method,
@@ -1239,7 +1253,7 @@ class VupDatabaseService {
       plan_id: plan.id,
       pass_type: params.pass_type,
       holder_name: params.holder_name,
-      holder_phone: params.holder_phone,
+      holder_phone: cleanPhone,
       people_allowed: params.people_allowed,
       valid_from: validFromDate,
       valid_through: validThroughDate,
@@ -1263,7 +1277,7 @@ class VupDatabaseService {
         const { data, error } = await this.supabase.rpc('issue_pass', {
           p_pass_type: params.pass_type,
           p_holder_name: params.holder_name,
-          p_holder_phone: params.holder_phone || null,
+          p_holder_phone: cleanPhone,
           p_people_allowed: params.people_allowed,
           p_payment_method: params.payment_method,
           p_valid_from: validFromDate,
@@ -1278,7 +1292,15 @@ class VupDatabaseService {
           p_device_name: getSystemDeviceInfo().deviceName,
         });
 
-        if (!error && data && data.success && data.pass) {
+        if (data && data.success === false) {
+          throw new Error(data.message || 'Cannot issue pass in database');
+        }
+
+        if (error) {
+          throw new Error(error.message || 'Database error occurred while issuing pass.');
+        }
+
+        if (data && data.success && data.pass) {
           const sPass = data.pass;
           newPass.id = sPass.id;
           newPass.pass_number = sPass.pass_number;
@@ -1286,10 +1308,11 @@ class VupDatabaseService {
           order.id = sPass.order_id;
           order.amount_paise = sPass.price_paise;
           console.log('✅ Pass secured & issued by Supabase Server RPC:', newPass.pass_number);
-        } else {
-          console.warn('Supabase issue_pass error:', error || data?.message);
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (err.message && (err.message.includes('mandatory') || err.message.includes('already') || err.message.includes('Cannot'))) {
+          throw err;
+        }
         console.warn('Supabase issue_pass RPC failed, maintaining local state:', err);
       }
     }
@@ -1435,6 +1458,46 @@ class VupDatabaseService {
     }
 
     return results;
+  }
+
+  /**
+   * Check if a 10-digit mobile number currently has an ACTIVE, non-expired pass
+   */
+  async checkActivePassByPhone(rawPhone: string): Promise<Pass | null> {
+    const cleanPhone = rawPhone.replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || cleanPhone.length !== 10) return null;
+
+    const todayYmd = getTodayIstYmd();
+
+    // 1. Check in Supabase if online
+    if (this.supabase) {
+      try {
+        const { data, error } = await this.supabase
+          .from('passes')
+          .select('*')
+          .ilike('holder_phone', `%${cleanPhone}%`)
+          .eq('status', 'ACTIVE')
+          .gte('valid_through', todayYmd)
+          .order('valid_through', { ascending: false })
+          .limit(1);
+
+        if (!error && data && data.length > 0) {
+          return data[0] as Pass;
+        }
+      } catch (err) {
+        console.warn('Check active pass in Supabase error:', err);
+      }
+    }
+
+    // 2. Check local passes
+    const localPasses = this.getLocalPasses();
+    const match = localPasses.find(p => {
+      if (!p.holder_phone || p.status !== 'ACTIVE') return false;
+      const pClean = p.holder_phone.replace(/\D/g, '').slice(-10);
+      return pClean === cleanPhone && p.valid_through >= todayYmd;
+    });
+
+    return match || null;
   }
 
   /**
