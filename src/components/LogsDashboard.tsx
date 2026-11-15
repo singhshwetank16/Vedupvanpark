@@ -371,11 +371,10 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
   // Filter for Monthly Pass Duration: 'ALL' | '1_MONTH' | '2_MONTHS' | '3_MONTHS'
   const [monthlyDurationFilter, setMonthlyDurationFilter] = useState<MonthlyDurationCategory>('ALL');
 
-  // Date Filters (Indian Standard Time)
+  // Date Filters (Indian Standard Time) - default to all records
   const todayYmd = getTodayIstYmd();
-  const [startDate, setStartDate] = useState<string>(todayYmd);
-  const [endDate, setEndDate] = useState<string>(todayYmd);
-  const [datePreset, setDatePreset] = useState<'today' | 'yesterday' | 'week' | 'month' | 'all' | 'custom'>('today');
+  const startDate: string = '';
+  const endDate: string = '';
 
   useEffect(() => {
     loadData();
@@ -936,35 +935,6 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
         <span>{label}</span>
       </span>
     );
-  };
-
-  // Date Preset Handler (Indian Standard Time)
-  const handleDatePreset = (preset: 'today' | 'yesterday' | 'week' | 'month' | 'all') => {
-    setDatePreset(preset);
-    const today = getTodayIstYmd();
-
-    if (preset === 'today') {
-      setStartDate(today);
-      setEndDate(today);
-    } else if (preset === 'yesterday') {
-      const now = new Date();
-      now.setDate(now.getDate() - 1);
-      const yStr = getIstDateYmd(now);
-      setStartDate(yStr);
-      setEndDate(yStr);
-    } else if (preset === 'week') {
-      const now = new Date();
-      now.setDate(now.getDate() - 7);
-      setStartDate(getIstDateYmd(now));
-      setEndDate(today);
-    } else if (preset === 'month') {
-      const [year, month] = today.split('-');
-      setStartDate(`${year}-${month}-01`);
-      setEndDate(today);
-    } else if (preset === 'all') {
-      setStartDate('');
-      setEndDate('');
-    }
   };
 
   // Check if date falls in selected range (Indian Standard Time)
@@ -1707,9 +1677,9 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
             </div>
           </div>
 
-          {/* Unified Date Filter & Action Bar */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+          {/* Unified Action Bar */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-xl font-black text-slate-900">{reportTitles[selectedReport].title}</h2>
                 <p className="text-xs text-slate-500 mt-0.5">{reportTitles[selectedReport].subtitle}</p>
@@ -1734,69 +1704,6 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                   <Download className="w-4 h-4" />
                   <span>Export to Excel (CSV)</span>
                 </button>
-              </div>
-            </div>
-
-            {/* Date Filters Control */}
-            <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                <Calendar className="w-4 h-4 text-emerald-600" />
-                <span>Date Filter:</span>
-              </div>
-
-              {/* Quick Presets */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                {(
-                  [
-                    { id: 'today', label: 'Today' },
-                    { id: 'yesterday', label: 'Yesterday' },
-                    { id: 'week', label: 'Last 7 Days' },
-                    { id: 'month', label: 'This Month' },
-                    { id: 'all', label: 'All Records' },
-                  ] as const
-                ).map(p => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => handleDatePreset(p.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer border ${
-                      datePreset === p.id
-                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Custom Date Pickers */}
-              <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:ml-auto">
-                <div className="flex items-center gap-1 bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200 text-xs flex-1 sm:flex-initial">
-                  <span className="text-slate-400 font-bold">From:</span>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={e => {
-                      setStartDate(e.target.value);
-                      setDatePreset('custom');
-                    }}
-                    className="bg-transparent text-slate-800 font-semibold focus:outline-none cursor-pointer w-full"
-                  />
-                </div>
-
-                <div className="flex items-center gap-1 bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200 text-xs flex-1 sm:flex-initial">
-                  <span className="text-slate-400 font-bold">To:</span>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={e => {
-                      setEndDate(e.target.value);
-                      setDatePreset('custom');
-                    }}
-                    className="bg-transparent text-slate-800 font-semibold focus:outline-none cursor-pointer w-full"
-                  />
-                </div>
               </div>
             </div>
           </div>
