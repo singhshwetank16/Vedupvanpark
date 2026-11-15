@@ -129,7 +129,7 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
   };
 
   return (
-    <div className="max-w-6xl mx-auto w-full p-2 sm:p-3 space-y-3">
+    <div className="max-w-[1440px] xl:max-w-[1560px] mx-auto w-full p-2 sm:p-4 space-y-4">
       {/* Compact Title Header with Logo & Mode Switcher */}
       <div className="bg-gradient-to-br from-white via-white to-emerald-50/50 border border-white/70 rounded-2xl px-4 py-2.5 sm:py-3 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5 shrink-0">
         <div className="flex items-center gap-3">
@@ -376,7 +376,7 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
             </span>
           </div>
 
-          <div className="space-y-2 overflow-y-auto custom-scrollbar flex-1 min-h-[140px] max-h-[190px] pr-1">
+          <div className="space-y-2 overflow-y-auto custom-scrollbar flex-1 min-h-[220px] max-h-[340px] sm:max-h-[380px] pr-1">
             {recentPasses.length === 0 ? (
               <div className="py-8 text-center space-y-1.5">
                 <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-100">

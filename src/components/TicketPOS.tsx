@@ -33,12 +33,12 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
       const tickets = await dbService.fetchRecentTickets(200);
       const todayOnly = tickets.filter(t => isSameIstDay(t.created_at));
       setAllTodayTickets(todayOnly);
-      setRecentTickets(todayOnly.slice(0, 5));
+      setRecentTickets(todayOnly.slice(0, 20));
     } catch {
       const local = dbService.getLocalTickets();
       const todayOnly = local.filter(t => isSameIstDay(t.created_at));
       setAllTodayTickets(todayOnly);
-      setRecentTickets(todayOnly.slice(0, 5));
+      setRecentTickets(todayOnly.slice(0, 20));
     }
   };
 
@@ -82,7 +82,7 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
         payment_method: paymentMode,
       });
 
-      setRecentTickets(prev => [ticket, ...prev.slice(0, 4)]);
+      setRecentTickets(prev => [ticket, ...prev.slice(0, 19)]);
       onTicketGenerated(ticket);
       refreshSummary();
 
@@ -134,7 +134,7 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
   }, [allTodayTickets, ticketSearch, paymentFilter]);
 
   return (
-    <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-stretch">
+    <div className="max-w-[1440px] xl:max-w-[1560px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 lg:gap-5 items-stretch">
       {/* Left Column: POS Generation */}
       <div className="lg:col-span-8 flex flex-col justify-between space-y-3">
         {/* Compact Header Banner with Official Logo */}
@@ -209,7 +209,7 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
             </div>
 
             {/* Quick Touch Buttons */}
-            <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+            <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 sm:gap-2.5">
               {quickPersons.map(count => {
                 const isSelected = persons === count;
                 const cost = count * unitRateInr;
@@ -218,16 +218,16 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
                     key={count}
                     type="button"
                     onClick={() => setPersons(count)}
-                    className={`py-2 px-1.5 rounded-xl flex flex-col items-center justify-center transition-all duration-150 transform cursor-pointer relative overflow-hidden group ${
+                    className={`py-2.5 sm:py-3.5 px-2 rounded-xl flex flex-col items-center justify-center transition-all duration-150 transform cursor-pointer relative overflow-hidden group ${
                       isSelected
                         ? 'bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-500 text-white shadow-md shadow-emerald-600/35 ring-2 ring-emerald-400 scale-[1.03] border-0'
                         : 'bg-white hover:bg-emerald-50/70 text-slate-800 border border-slate-200/90 hover:border-emerald-300 shadow-2xs hover:scale-[1.01]'
                     }`}
                   >
-                    <span className={`text-lg sm:text-xl font-black tracking-tight leading-none ${isSelected ? 'text-white' : 'text-slate-900 group-hover:text-emerald-700'}`}>
+                    <span className={`text-xl sm:text-2xl font-black tracking-tight leading-none ${isSelected ? 'text-white' : 'text-slate-900 group-hover:text-emerald-700'}`}>
                       {count}
                     </span>
-                    <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-full mt-1 transition ${
+                    <span className={`text-[11px] font-black px-1.5 py-0.5 rounded-full mt-1.5 transition ${
                       isSelected 
                         ? 'bg-white/25 text-white' 
                         : 'bg-slate-100 text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-800'
@@ -239,23 +239,38 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
               })}
             </div>
 
-            {/* Stepper for custom person count (Compact inlined row) */}
-            <div className="flex items-center justify-between bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200/90">
-              <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider">
-                Custom Person Count:
-              </span>
-              <div className="flex items-center gap-1.5">
+            {/* Custom Person Count Box (Enlarged, Touch-Friendly & High-Visibility) */}
+            <div className="bg-gradient-to-r from-emerald-50/80 via-white to-teal-50/80 p-3 sm:p-4 rounded-2xl border-2 border-emerald-300 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white flex items-center justify-center font-black text-xl shadow-xs shrink-0">
+                  <Users className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <div className="text-xs sm:text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <span>Custom Person Count</span>
+                    <span className="text-[10px] font-black text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-300/60">
+                      Group Entry
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+                    Type count directly or use large − / + buttons
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setPersons(Math.max(1, persons - 1))}
-                  className="w-8 h-8 rounded-lg bg-white hover:bg-emerald-50 text-slate-800 hover:text-emerald-700 text-base font-black active:scale-90 transition border border-slate-200 shadow-2xs cursor-pointer flex items-center justify-center"
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-white hover:bg-emerald-600 text-slate-800 hover:text-white text-2xl font-black active:scale-90 transition border-2 border-slate-300 hover:border-emerald-600 shadow-sm cursor-pointer flex items-center justify-center shrink-0"
+                  title="Decrease person count"
                 >
-                  -
+                  −
                 </button>
                 <input
                   type="number"
                   min={1}
-                  max={50}
+                  max={100}
                   placeholder="1"
                   value={persons === 0 ? '' : persons}
                   onClick={() => setPersons(0)}
@@ -265,14 +280,15 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
                   }}
                   onChange={e => {
                     const val = e.target.value === '' ? 0 : parseInt(e.target.value);
-                    setPersons(isNaN(val) ? 0 : Math.min(50, Math.max(0, val)));
+                    setPersons(isNaN(val) ? 0 : Math.min(100, Math.max(0, val)));
                   }}
-                  className="w-14 text-center py-1 bg-white border border-emerald-500/50 rounded-lg text-base font-black text-emerald-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-inner"
+                  className="w-20 sm:w-24 h-12 sm:h-14 text-center bg-white border-2 border-emerald-500 rounded-xl text-2xl sm:text-3xl font-black text-emerald-950 focus:outline-none focus:ring-4 focus:ring-emerald-500/25 shadow-inner"
                 />
                 <button
                   type="button"
                   onClick={() => setPersons(persons + 1)}
-                  className="w-8 h-8 rounded-lg bg-white hover:bg-emerald-50 text-slate-800 hover:text-emerald-700 text-base font-black active:scale-90 transition border border-slate-200 shadow-2xs cursor-pointer flex items-center justify-center"
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-white hover:bg-emerald-600 text-slate-800 hover:text-white text-2xl font-black active:scale-90 transition border-2 border-slate-300 hover:border-emerald-600 shadow-sm cursor-pointer flex items-center justify-center shrink-0"
+                  title="Increase person count"
                 >
                   +
                 </button>
@@ -416,46 +432,59 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
           </div>
         </div>
 
-        {/* Recent Tickets History Card (matches height with main card, slim custom scrollbar) */}
-        <div className="bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/60 rounded-2xl p-3.5 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex-1 flex flex-col justify-between space-y-2">
-          <div className="flex items-center justify-between text-xs font-black text-slate-700 uppercase tracking-wider border-b border-slate-100 pb-1.5">
+        {/* Recent Tickets History Card (Expanded height & showing more tickets) */}
+        <div className="bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/60 rounded-2xl p-3.5 sm:p-4 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex-1 flex flex-col justify-between space-y-2.5">
+          <div className="flex items-center justify-between text-xs font-black text-slate-700 uppercase tracking-wider border-b border-slate-100 pb-2">
             <div className="flex items-center gap-1.5">
               <span>Recent Tickets</span>
+              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/70">
+                {recentTickets.length}
+              </span>
               <button
                 type="button"
                 onClick={() => { refreshTickets(); refreshSummary(); }}
                 className="p-1 hover:bg-emerald-50 rounded-lg text-slate-400 hover:text-emerald-700 transition cursor-pointer"
                 title="Sync tickets with Supabase"
               >
-                <RefreshCw className="w-3 h-3" />
+                <RefreshCw className="w-3.5 h-3.5" />
               </button>
             </div>
-            <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Re-Print</span>
+            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Re-Print</span>
           </div>
 
-          <div className="space-y-1.5 flex-1 min-h-[120px] max-h-[160px] overflow-y-auto custom-scrollbar pr-1">
+          <div className="space-y-2 flex-1 min-h-[220px] max-h-[320px] sm:max-h-[360px] lg:max-h-[400px] xl:max-h-[440px] overflow-y-auto custom-scrollbar pr-1">
             {recentTickets.length === 0 ? (
-              <p className="text-xs text-slate-400 py-4 text-center font-medium">No tickets issued yet today.</p>
+              <p className="text-xs text-slate-400 py-6 text-center font-medium">No tickets issued yet today.</p>
             ) : (
               recentTickets.map(tk => (
                 <div
                   key={tk.id}
-                  className="flex items-center justify-between bg-white p-2 rounded-xl border border-slate-200/90 text-xs hover:border-emerald-300 transition gap-2 group"
+                  className="flex items-center justify-between bg-white hover:bg-emerald-50/40 p-2 sm:p-2.5 rounded-xl border border-slate-200/90 hover:border-emerald-300 transition-all duration-150 gap-2 shadow-2xs group"
                 >
-                  <div className="min-w-0">
-                    <div className="font-mono font-black text-emerald-800 tracking-tight whitespace-nowrap truncate text-[11px]">{tk.ticket_number}</div>
-                    <div className="text-[10px] text-slate-500 font-semibold whitespace-nowrap truncate">
-                      {tk.persons_count} Person(s) • ₹{(tk.price_paise / 100).toFixed(2)} ({tk.payment_method || 'CASH'})
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-black text-emerald-800 tracking-tight whitespace-nowrap text-xs">
+                        {tk.ticket_number}
+                      </span>
+                      <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-full uppercase tracking-wider ${
+                        tk.payment_method === 'UPI' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {tk.payment_method || 'CASH'}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 font-semibold whitespace-nowrap truncate mt-0.5">
+                      {tk.persons_count} {tk.persons_count === 1 ? 'Person' : 'Persons'} • <span className="font-bold text-slate-800">₹{((tk.price_paise || tk.persons_count * 1000) / 100).toFixed(0)}</span>
                     </div>
                   </div>
 
                   <button
                     type="button"
                     onClick={() => handleReprint(tk)}
-                    className="p-1.5 bg-slate-50 hover:bg-emerald-600 text-slate-600 hover:text-white rounded-lg border border-slate-200 hover:border-emerald-600 transition shadow-2xs cursor-pointer shrink-0"
+                    className="px-2.5 py-1.5 bg-slate-50 hover:bg-emerald-600 text-slate-600 hover:text-white rounded-lg border border-slate-200 hover:border-emerald-600 transition shadow-2xs cursor-pointer shrink-0 flex items-center gap-1 text-[11px] font-bold"
                     title={`Re-print Ticket ${tk.ticket_number}`}
                   >
                     <Printer className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Print</span>
                   </button>
                 </div>
               ))
@@ -465,7 +494,7 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
           <button
             type="button"
             onClick={() => setIsReportModalOpen(true)}
-            className="w-full py-2 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shrink-0"
+            className="w-full py-2.5 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shrink-0"
           >
             <FileText className="w-3.5 h-3.5" />
             <span>Full Report & Re-Print ({allTodayTickets.length})</span>
