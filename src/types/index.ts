@@ -28,6 +28,7 @@ export interface ParkSettings {
   printable_width_mm: number; // 72.00
   qr_size_mm: number; // 40.00
   max_persons_per_ticket: number;
+  enable_passes?: boolean; // Controls visibility of Subscription Passes tab in navigation
   updated_at?: string;
 }
 

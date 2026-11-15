@@ -29,6 +29,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
     printable_width_mm: 72.00,
     qr_size_mm: 40.00,
     max_persons_per_ticket: 20,
+    enable_passes: true,
   },
   supabaseUrl: import.meta.env.VITE_SUPABASE_URL || 'https://kzuxtkxdhyrowgczrhwa.supabase.co',
   supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6dXh0a3hkaHlyb3dnY3pyaHdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ0ODMyOTMsImV4cCI6MjExMDA1OTI5M30.l9gqo23C6Hd9mnAd5qJLcp-oITpOBhkGWvF3FTXm8pA',
@@ -211,11 +212,32 @@ class VupDatabaseService {
     try {
       const saved = localStorage.getItem('vup_app_config');
       if (saved) {
-        this.config = { ...DEFAULT_APP_CONFIG, ...JSON.parse(saved) };
+        const parsed = JSON.parse(saved);
+        this.config = {
+          ...DEFAULT_APP_CONFIG,
+          ...parsed,
+          park_settings: {
+            ...DEFAULT_APP_CONFIG.park_settings,
+            ...(parsed.park_settings || {}),
+          },
+        };
       }
     } catch {
       this.config = DEFAULT_APP_CONFIG;
     }
+    return this.config;
+  }
+
+  isPassesEnabled(): boolean {
+    return this.config.park_settings?.enable_passes !== false;
+  }
+
+  setPassesEnabled(enabled: boolean): AppConfig {
+    const updatedSettings = {
+      ...this.config.park_settings,
+      enable_passes: enabled,
+    };
+    this.saveConfig({ park_settings: updatedSettings });
     return this.config;
   }
 
@@ -333,6 +355,8 @@ class VupDatabaseService {
     localStorage.removeItem('vup_passes');
     localStorage.removeItem('vup_entry_events');
     localStorage.removeItem('vup_orders');
+    localStorage.removeItem('vup_audit_logs');
+    localStorage.removeItem('vup_audit_logs_cleared_at');
     const ymd = this.getIstYmd();
     localStorage.removeItem(`vup_seq_TICKET_${ymd}`);
     localStorage.removeItem(`vup_seq_MONTHLY_${ymd}`);
@@ -799,20 +823,46 @@ class VupDatabaseService {
   async clearAllAuditLogs(): Promise<{ success: boolean; message?: string }> {
     try {
       localStorage.removeItem('vup_audit_logs');
+      localStorage.setItem('vup_audit_logs_cleared_at', Date.now().toString());
       if (this.supabase) {
         try {
           const { error } = await this.supabase.rpc('clear_audit_logs');
           if (error) {
             console.warn('Supabase clear_audit_logs error, fallback:', error);
-            await this.supabase.from('audit_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
           }
         } catch (e) {
           console.warn('Supabase audit logs deletion error:', e);
+        }
+        try {
+          await this.supabase.from('audit_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        } catch (e) {
+          console.warn('Direct delete audit_logs error:', e);
         }
       }
       return { success: true, message: 'All audit logs cleared successfully!' };
     } catch (err: unknown) {
       return { success: false, message: err instanceof Error ? err.message : 'Failed to clear audit logs' };
+    }
+  }
+
+  async clearAllGateScanLogs(): Promise<{ success: boolean; message?: string }> {
+    try {
+      localStorage.removeItem('vup_entry_events');
+      if (this.supabase) {
+        try {
+          await this.supabase.rpc('clear_entry_events');
+        } catch (e) {
+          console.warn('clear_entry_events rpc error, fallback:', e);
+        }
+        try {
+          await this.supabase.from('entry_events').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        } catch (e) {
+          console.warn('Direct delete entry_events error:', e);
+        }
+      }
+      return { success: true, message: 'All gate scan events cleared successfully!' };
+    } catch (err: unknown) {
+      return { success: false, message: err instanceof Error ? err.message : 'Failed to clear scan logs' };
     }
   }
 
@@ -856,6 +906,7 @@ class VupDatabaseService {
 
     const localLogs: AuditLog[] = [];
     const defaultDev = getSystemDeviceInfo();
+    const clearedAtMs = parseInt(localStorage.getItem('vup_audit_logs_cleared_at') || '0', 10);
 
     try {
       const saved = localStorage.getItem('vup_audit_logs');
@@ -863,6 +914,12 @@ class VupDatabaseService {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
           for (const item of parsed) {
+            // If cleared previously, ignore items created before clear timestamp
+            if (clearedAtMs && item.created_at) {
+              const itemTime = new Date(item.created_at).getTime();
+              if (itemTime <= clearedAtMs) continue;
+            }
+
             let after: any = {};
             if (typeof item.after_json === 'string') {
               try { after = JSON.parse(item.after_json); } catch { }
@@ -883,7 +940,7 @@ class VupDatabaseService {
       // ignore
     }
 
-    // Merge real logs
+    // Merge real logs (no fake synthetic duplication)
     const merged = [...cloudLogs];
     for (const l of localLogs) {
       if (!merged.some(m => m.id === l.id)) {
@@ -891,65 +948,6 @@ class VupDatabaseService {
           ...l,
           device_name: l.device_name || defaultDev.deviceName,
           device_type: l.device_type || defaultDev.deviceType,
-        });
-      }
-    }
-
-    // Automatically bridge any local tickets, passes, and entry events into audit logs
-    const existingEntityIds = new Set(merged.map(m => m.entity_id || m.id));
-
-    // Bridge local tickets
-    for (const t of this.getLocalTickets()) {
-      if (!existingEntityIds.has(t.ticket_number) && !existingEntityIds.has(t.id)) {
-        merged.push({
-          id: `audit-tkt-${t.id}`,
-          action: 'TICKET_GENERATED',
-          entity_type: 'TICKET',
-          entity_id: t.ticket_number,
-          actor_name: 'Counter Operator',
-          details_summary: `${t.persons_count || 1} Person(s) • ₹${((t.price_paise || (t.persons_count || 1) * 1000) / 100).toFixed(0)} (${t.payment_method || 'CASH'})`,
-          device_name: t.device_name || defaultDev.deviceName,
-          device_type: defaultDev.deviceType,
-          created_at: t.created_at || new Date().toISOString(),
-        });
-      }
-    }
-
-    // Bridge local passes
-    for (const p of this.getLocalPasses()) {
-      if (!existingEntityIds.has(p.pass_number) && !existingEntityIds.has(p.id)) {
-        merged.push({
-          id: `audit-pss-${p.id}`,
-          action: 'PASS_GENERATED',
-          entity_type: 'PASS',
-          entity_id: p.pass_number,
-          actor_name: 'Counter Operator',
-          details_summary: `${p.pass_type} Pass • ${p.holder_name} (${p.people_allowed || 1} Person)`,
-          device_name: p.device_name || defaultDev.deviceName,
-          device_type: defaultDev.deviceType,
-          created_at: p.created_at || new Date().toISOString(),
-        });
-      }
-    }
-
-    // Bridge local entry events
-    for (const ev of this.getLocalEntryEvents()) {
-      const eventKey = ev.document_number || ev.request_id || ev.id;
-      if (!existingEntityIds.has(eventKey) && !existingEntityIds.has(ev.id)) {
-        merged.push({
-          id: `audit-ev-${ev.id}`,
-          action: ev.result === 'SUCCESS'
-            ? (ev.document_type === 'PASS' ? 'GATE_PASS_ADMITTED' : 'GATE_TICKET_ADMITTED')
-            : `GATE_SCAN_DENIED_${ev.result || 'INVALID'}`,
-          entity_type: 'GATE',
-          entity_id: ev.document_number || ev.ticket_id || ev.pass_id,
-          actor_name: 'Gate Security',
-          details_summary: ev.result === 'SUCCESS'
-            ? `Entry Granted for ${ev.persons_admitted || 1} Person(s) at ${ev.gate_id || 'GATE-01'}`
-            : `Scan Denied: ${ev.reason || ev.result}`,
-          device_name: ev.device_name || defaultDev.deviceName,
-          device_type: defaultDev.deviceType,
-          created_at: ev.scanned_at || new Date().toISOString(),
         });
       }
     }

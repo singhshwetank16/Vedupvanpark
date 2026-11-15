@@ -53,6 +53,7 @@ interface LogsDashboardProps {
   config: AppConfig;
   onOpenSettings?: () => void;
   onTicketGenerated?: (doc: Ticket | Pass) => void;
+  onConfigUpdated?: (config: AppConfig) => void;
 }
 
 type ReportType = 
@@ -168,7 +169,7 @@ export const getPassEffectiveAmountPaise = (
   return (currentRates.monthly_pass_1m_inr || 300) * 100;
 };
 
-export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGenerated }) => {
+export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGenerated, onConfigUpdated }) => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [passes, setPasses] = useState<Pass[]>([]);
   const [entryEvents, setEntryEvents] = useState<EntryEvent[]>([]);
@@ -222,6 +223,39 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
   const [showSettingsPassword, setShowSettingsPassword] = useState<boolean>(false);
   const [settingsAuthError, setSettingsAuthError] = useState<string | null>(null);
   const [isVerifyingSettingsAuth, setIsVerifyingSettingsAuth] = useState<boolean>(false);
+
+  // Subscription Passes Enable / Disable state
+  const [isPassesEnabled, setIsPassesEnabled] = useState<boolean>(
+    () => config.park_settings?.enable_passes !== false
+  );
+  const [passesToggleMsg, setPassesToggleMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsPassesEnabled(config.park_settings?.enable_passes !== false);
+  }, [config.park_settings?.enable_passes]);
+
+  const handleTogglePassesEnabled = (enabled: boolean) => {
+    setIsPassesEnabled(enabled);
+    const updated = dbService.setPassesEnabled(enabled);
+    if (onConfigUpdated) {
+      onConfigUpdated(updated);
+    }
+    const currentStaff = dbService.getCurrentStaff();
+    dbService.logAuditEvent({
+      action: enabled ? 'PASSES_DESK_ENABLED' : 'PASSES_DESK_DISABLED',
+      entity_type: 'SETTINGS',
+      actor_name: currentStaff?.name || 'Administrator',
+      actor_email: currentStaff?.email || 'admin@vedupvan.local',
+      details_summary: `Monthly & Yearly Passes Desk ${enabled ? 'Enabled (Visible in navigation)' : 'Disabled (Hidden from navigation)'}`,
+      after_json: { enable_passes: enabled },
+    });
+    setPassesToggleMsg(
+      enabled
+        ? 'Passes Desk ENABLED: The "Passes" button is now visible in the top header.'
+        : 'Passes Desk DISABLED: The "Passes" button is now hidden from the top header.'
+    );
+    setTimeout(() => setPassesToggleMsg(null), 4000);
+  };
 
   // Editable pricing rates
   const [ratesForm, setRatesForm] = useState(() => dbService.getPricingRates());
@@ -727,16 +761,41 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
       return;
     }
     try {
+      setIsLoading(true);
       const res = await dbService.clearAllAuditLogs();
       if (res.success) {
         setAuditLogs([]);
-        await loadData(true);
+        const freshLogs = await dbService.fetchAuditLogs(100);
+        setAuditLogs(freshLogs);
         alert('All system logs have been cleared successfully!');
       } else {
         alert(res.message || 'Failed to clear logs.');
       }
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Error clearing logs.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleClearGateScanLogs = async () => {
+    if (!window.confirm('Are you sure you want to clear all Gate Scan Events & Admission logs?\n\nThis will reset scan logs and reports while keeping tickets and passes intact.')) {
+      return;
+    }
+    try {
+      setIsLoading(true);
+      const res = await dbService.clearAllGateScanLogs();
+      if (res.success) {
+        setEntryEvents([]);
+        await loadData(true);
+        alert('All gate scan logs cleared successfully!');
+      } else {
+        alert(res.message || 'Failed to clear scan logs.');
+      }
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Error clearing scan logs.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -2973,10 +3032,19 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                 type="button"
                 onClick={handleClearLogs}
                 className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-red-50 hover:bg-red-100 active:scale-95 text-red-700 border border-red-200 font-bold text-xs rounded-xl transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                title="Clear all stored audit logs"
+                title="Clear all stored audit and activity logs"
               >
                 <Trash2 className="w-4 h-4 text-red-600" />
                 <span>Clear All Logs</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleClearGateScanLogs}
+                className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-amber-50 hover:bg-amber-100 active:scale-95 text-amber-800 border border-amber-200 font-bold text-xs rounded-xl transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                title="Clear all Gate Scan events & admission history"
+              >
+                <Camera className="w-4 h-4 text-amber-600" />
+                <span>Clear Gate Scans</span>
               </button>
               <button
                 type="button"
@@ -3162,6 +3230,87 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
               <Lock className="w-3.5 h-3.5 text-amber-600" />
               <span>Lock Settings</span>
             </button>
+          </div>
+
+          {/* Monthly & Yearly Passes Desk Visibility (Show/Hide in Navigation Header) */}
+          <div className="bg-gradient-to-br from-white via-slate-50/50 to-blue-50/30 p-5 sm:p-7 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
+              <div className="flex items-center gap-3">
+                <div className={`p-3 text-white rounded-2xl shadow-sm shrink-0 ${
+                  isPassesEnabled
+                    ? 'bg-gradient-to-br from-blue-600 to-indigo-600 shadow-blue-500/20'
+                    : 'bg-gradient-to-br from-slate-500 to-slate-600 shadow-slate-500/20'
+                }`}>
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    Monthly & Yearly Passes Desk (Passes Tab)
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Enable or disable the Subscription Passes module in the top navigation header.
+                  </p>
+                </div>
+              </div>
+
+              {/* Status Badge */}
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1.5 rounded-full text-xs font-black border flex items-center gap-1.5 ${
+                  isPassesEnabled
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : 'bg-rose-100 text-rose-800 border-rose-300'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${isPassesEnabled ? 'bg-emerald-600 animate-pulse' : 'bg-rose-500'}`} />
+                  {isPassesEnabled ? 'ENABLED • Visible in Header' : 'DISABLED • Hidden from Header'}
+                </span>
+              </div>
+            </div>
+
+            {passesToggleMsg && (
+              <div className={`p-3 rounded-2xl text-xs font-bold flex items-center gap-2 animate-in fade-in ${
+                isPassesEnabled ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'
+              }`}>
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                <span>{passesToggleMsg}</span>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200">
+              <div className="space-y-1">
+                <div className="text-xs font-black text-slate-900">
+                  {isPassesEnabled ? 'Passes Module is Currently Active' : 'Passes Module is Currently Inactive'}
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {isPassesEnabled
+                    ? 'Staff operators can see the "Passes" button in the top navigation header and issue/re-print monthly & yearly passes.'
+                    : 'The "Passes" button is completely hidden from the top navigation header. Staff will only see Ticket POS and Gate Scanner.'}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleTogglePassesEnabled(!isPassesEnabled)}
+                  className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer shadow-sm active:scale-95 flex items-center gap-2 ${
+                    isPassesEnabled
+                      ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300'
+                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-emerald-600/20'
+                  }`}
+                >
+                  {isPassesEnabled ? (
+                    <>
+                      <X className="w-4 h-4 text-rose-600" />
+                      <span>Disable Passes Desk</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-4 h-4 text-white" />
+                      <span>Enable Passes Desk</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Official Gazette Pricing Master & Rate Editor */}

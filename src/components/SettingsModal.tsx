@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { AppConfig } from '../types';
 import { dbService } from '../lib/supabase';
 import { printerService } from '../lib/printer';
-import { Settings, Bluetooth, Database, Save, Check, X, ShieldAlert, Trash2, RefreshCcw } from 'lucide-react';
+import { Settings, Bluetooth, Database, Save, Check, X, ShieldAlert, Trash2, RefreshCcw, CreditCard } from 'lucide-react';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -254,6 +254,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   })}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-emerald-400 font-bold"
                 />
+              </div>
+
+              <div className="sm:col-span-2 bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-xs font-bold text-white flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-blue-400" />
+                    <span>Monthly & Yearly Passes Desk (Passes Tab)</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Show or hide the "Passes" tab in the top navigation header.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFormData({
+                    ...formData,
+                    park_settings: {
+                      ...formData.park_settings,
+                      enable_passes: formData.park_settings.enable_passes === false ? true : false,
+                    }
+                  })}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer ${
+                    formData.park_settings.enable_passes !== false
+                      ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                      : 'bg-slate-800 text-slate-400 border border-slate-700'
+                  }`}
+                >
+                  {formData.park_settings.enable_passes !== false ? 'Enabled (Visible)' : 'Disabled (Hidden)'}
+                </button>
               </div>
 
               <div>

@@ -24,6 +24,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const isAdmin = role === 'SUPER_ADMIN';
   const isCounter = role === 'COUNTER' || isAdmin;
   const isGate = role === 'GATE' || isAdmin;
+  const isPassesEnabled = config.park_settings?.enable_passes !== false;
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-xl border-b border-emerald-950/10 shadow-sm no-print">
@@ -83,18 +84,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>Ticket POS</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveTab('passes')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer ${
-                  activeTab === 'passes'
-                    ? 'bg-gradient-to-r from-blue-600 via-cyan-600 to-blue-500 text-white shadow-md shadow-blue-600/30'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                }`}
-              >
-                <CreditCard className="w-4 h-4" />
-                <span>Passes</span>
-              </button>
+              {isPassesEnabled && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('passes')}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer ${
+                    activeTab === 'passes'
+                      ? 'bg-gradient-to-r from-blue-600 via-cyan-600 to-blue-500 text-white shadow-md shadow-blue-600/30'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                  }`}
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>Passes</span>
+                </button>
+              )}
             </>
           )}
 

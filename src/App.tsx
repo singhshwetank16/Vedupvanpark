@@ -61,6 +61,12 @@ export function App() {
     setDocumentToPrint(doc);
   };
 
+  useEffect(() => {
+    if (config.park_settings?.enable_passes === false && activeTab === 'passes') {
+      setActiveTab('counter');
+    }
+  }, [config.park_settings?.enable_passes, activeTab]);
+
   // If not logged in, show dedicated 3-Role Login screen
   if (!staff) {
     return (
@@ -107,6 +113,7 @@ export function App() {
               config={config}
               onOpenSettings={() => setIsSettingsOpen(true)}
               onTicketGenerated={handleDocumentGenerated}
+              onConfigUpdated={updated => setConfig(updated)}
             />
           )}
 
@@ -116,7 +123,7 @@ export function App() {
           )}
 
           {/* Passes Manager */}
-          {isCounter && activeTab === 'passes' && (
+          {isCounter && (config.park_settings?.enable_passes !== false) && activeTab === 'passes' && (
             <PassManager config={config} onTicketGenerated={handleDocumentGenerated} />
           )}
 
@@ -150,14 +157,16 @@ export function App() {
                 <span>Counter</span>
               </button>
 
-              <button
-                onClick={() => setActiveTab('passes')}
-                className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl text-[10px] font-bold ${activeTab === 'passes' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-400'
-                  }`}
-              >
-                <CreditCard className="w-5 h-5" />
-                <span>Passes</span>
-              </button>
+              {config.park_settings?.enable_passes !== false && (
+                <button
+                  onClick={() => setActiveTab('passes')}
+                  className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl text-[10px] font-bold ${activeTab === 'passes' ? 'text-blue-400 bg-blue-500/10' : 'text-slate-400'
+                    }`}
+                >
+                  <CreditCard className="w-5 h-5" />
+                  <span>Passes</span>
+                </button>
+              )}
             </>
           )}
 
