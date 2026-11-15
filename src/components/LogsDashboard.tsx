@@ -1269,6 +1269,9 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
   // =========================================================================
   const handleSelectReport = (repId: ReportType, label: string) => {
     setSelectedReport(repId);
+    if (repId === 'monthly-sales' && (datePreset === 'today' || datePreset === 'yesterday' || datePreset === 'week')) {
+      handleDatePreset('all');
+    }
     const currentStaff = dbService.getCurrentStaff();
     dbService.logAuditEvent({
       action: 'REPORT_GENERATED',
@@ -1747,13 +1750,18 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
               {/* Quick Presets */}
               <div className="flex flex-wrap items-center gap-1.5">
                 {(
-                  [
-                    { id: 'today', label: 'Today' },
-                    { id: 'yesterday', label: 'Yesterday' },
-                    { id: 'week', label: 'Last 7 Days' },
-                    { id: 'month', label: 'This Month' },
-                    { id: 'all', label: 'All Records' },
-                  ] as const
+                  selectedReport === 'monthly-sales'
+                    ? ([
+                        { id: 'month', label: 'This Month' },
+                        { id: 'all', label: 'All Records' },
+                      ] as const)
+                    : ([
+                        { id: 'today', label: 'Today' },
+                        { id: 'yesterday', label: 'Yesterday' },
+                        { id: 'week', label: 'Last 7 Days' },
+                        { id: 'month', label: 'This Month' },
+                        { id: 'all', label: 'All Records' },
+                      ] as const)
                 ).map(p => (
                   <button
                     key={p.id}
