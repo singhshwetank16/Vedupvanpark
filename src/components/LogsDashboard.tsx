@@ -25,7 +25,6 @@ import {
   X,
   Settings,
   Bluetooth,
-  Shield,
   Activity,
   Save,
   Lock,
@@ -46,6 +45,8 @@ import {
   Unlock,
   AlertTriangle,
   RotateCcw,
+  Cpu,
+  Laptop,
 } from 'lucide-react';
 
 interface LogsDashboardProps {
@@ -1294,94 +1295,123 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
       {/* 4 Big Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 no-print">
         {/* Visitors */}
-        <div className="bg-white border border-slate-200 p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm flex items-center gap-3 sm:gap-4">
-          <div className="p-3 sm:p-3.5 bg-emerald-100 text-emerald-800 rounded-2xl shrink-0">
+        <div className="bg-gradient-to-br from-white to-emerald-50/50 border border-emerald-100/90 p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-xs hover:shadow-md transition-all flex items-center gap-3 sm:gap-4 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl -mr-6 -mt-6 group-hover:bg-emerald-500/10 transition-all pointer-events-none" />
+          <div className="p-3 sm:p-3.5 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl shadow-sm shadow-emerald-500/20 shrink-0">
             <Users className="w-6 h-6 sm:w-7 sm:h-7" />
           </div>
           <div>
-            <div className="text-[11px] sm:text-xs text-slate-500 font-bold">Visitors Admitted Today</div>
-            <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-0.5">{totalVisitorsAdmitted}</div>
+            <div className="text-[11px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider">Visitors Admitted Today</div>
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-0.5 tracking-tight">{totalVisitorsAdmitted}</div>
+            <div className="text-[11px] text-emerald-700 font-bold flex items-center gap-1 mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Gate entries verified</span>
+            </div>
           </div>
         </div>
 
         {/* Collection */}
-        <div className="bg-white border border-slate-200 p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm flex items-center gap-3 sm:gap-4">
-          <div className="p-3 sm:p-3.5 bg-blue-100 text-blue-800 rounded-2xl shrink-0">
+        <div className="bg-gradient-to-br from-white to-blue-50/50 border border-blue-100/90 p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-xs hover:shadow-md transition-all flex items-center gap-3 sm:gap-4 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl -mr-6 -mt-6 group-hover:bg-blue-500/10 transition-all pointer-events-none" />
+          <div className="p-3 sm:p-3.5 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-2xl shadow-sm shadow-blue-500/20 shrink-0">
             <IndianRupee className="w-6 h-6 sm:w-7 sm:h-7" />
           </div>
-          <div className="flex-1">
-            <div className="text-[11px] sm:text-xs text-slate-500 font-bold">Total Collection Today</div>
-            <div className="text-2xl sm:text-3xl font-black text-emerald-700 mt-0.5">₹{todayRevenueInr}</div>
-            <div className="flex items-center gap-2 mt-1 text-[10px] sm:text-[11px] font-bold text-slate-500">
-              <span className="text-emerald-700">1. Cash: ₹{(todayCashPaise / 100).toFixed(0)}</span>
-              <span>•</span>
-              <span className="text-blue-700">2. UPI: ₹{(todayUpiPaise / 100).toFixed(0)}</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider">Total Collection Today</div>
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-0.5 tracking-tight">
+              <span className="text-emerald-700">₹{todayRevenueInr}</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 mt-1 text-[10px] sm:text-[11px] font-bold">
+              <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 rounded-md border border-emerald-200/60">
+                Cash: ₹{(todayCashPaise / 100).toFixed(0)}
+              </span>
+              <span className="px-2 py-0.5 bg-blue-50 text-blue-800 rounded-md border border-blue-200/60">
+                UPI: ₹{(todayUpiPaise / 100).toFixed(0)}
+              </span>
             </div>
           </div>
         </div>
 
         {/* Active Tickets */}
-        <div className="bg-white border border-slate-200 p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm flex items-center gap-3 sm:gap-4">
-          <div className="p-3 sm:p-3.5 bg-amber-100 text-amber-800 rounded-2xl shrink-0">
+        <div className="bg-gradient-to-br from-white to-amber-50/50 border border-amber-100/90 p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-xs hover:shadow-md transition-all flex items-center gap-3 sm:gap-4 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl -mr-6 -mt-6 group-hover:bg-amber-500/10 transition-all pointer-events-none" />
+          <div className="p-3 sm:p-3.5 bg-gradient-to-br from-amber-500 to-orange-500 text-white rounded-2xl shadow-sm shadow-amber-500/20 shrink-0">
             <ShieldCheck className="w-6 h-6 sm:w-7 sm:h-7" />
           </div>
           <div>
-            <div className="text-[11px] sm:text-xs text-slate-500 font-bold">Active Valid Tickets</div>
-            <div className="text-2xl sm:text-3xl font-black text-amber-700 mt-0.5">{activeTicketsCount}</div>
+            <div className="text-[11px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider">Active Valid Tickets</div>
+            <div className="text-2xl sm:text-3xl font-black text-amber-700 mt-0.5 tracking-tight">{activeTicketsCount}</div>
+            <div className="text-[11px] text-amber-700/90 font-medium mt-0.5">
+              Ready for entry scan
+            </div>
           </div>
         </div>
 
         {/* Expired / Used */}
-        <div className="bg-white border border-slate-200 p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm flex items-center gap-3 sm:gap-4">
-          <div className="p-3 sm:p-3.5 bg-purple-100 text-purple-800 rounded-2xl shrink-0">
+        <div className="bg-gradient-to-br from-white to-purple-50/50 border border-purple-100/90 p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-xs hover:shadow-md transition-all flex items-center gap-3 sm:gap-4 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl -mr-6 -mt-6 group-hover:bg-purple-500/10 transition-all pointer-events-none" />
+          <div className="p-3 sm:p-3.5 bg-gradient-to-br from-purple-600 to-violet-600 text-white rounded-2xl shadow-sm shadow-purple-500/20 shrink-0">
             <CheckCircle2 className="w-6 h-6 sm:w-7 sm:h-7" />
           </div>
           <div>
-            <div className="text-[11px] sm:text-xs text-slate-500 font-bold">Scanned & Expired Today</div>
-            <div className="text-2xl sm:text-3xl font-black text-slate-700 mt-0.5">{usedTicketsCount}</div>
+            <div className="text-[11px] sm:text-xs text-slate-500 font-bold uppercase tracking-wider">Scanned & Expired Today</div>
+            <div className="text-2xl sm:text-3xl font-black text-slate-700 mt-0.5 tracking-tight">{usedTicketsCount}</div>
+            <div className="text-[11px] text-slate-500 font-medium mt-0.5">
+              Single-use tokens burned
+            </div>
           </div>
         </div>
       </div>
 
       {/* 4-Section Admin Dashboard Navigation Tabs */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between bg-white p-2 rounded-2xl border border-slate-200 shadow-sm no-print gap-2">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between bg-white/90 backdrop-blur-md p-2 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-xs no-print gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 flex-1">
           {/* 1. Reports */}
           <button
             type="button"
             onClick={() => handleSwitchSection('reports')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer text-center ${
+            className={`px-3.5 py-2.5 rounded-xl sm:rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer text-center ${
               activeSection === 'reports'
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
-                : 'text-slate-600 hover:bg-slate-100'
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/25'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
             }`}
           >
             <FileText className="w-4 h-4 shrink-0" />
-            <span className="truncate">1. Reports (8)</span>
+            <span className="truncate">1. Reports</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+              activeSection === 'reports' ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-700'
+            }`}>
+              8
+            </span>
           </button>
 
           {/* 2. User Master */}
           <button
             type="button"
             onClick={() => handleSwitchSection('users')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer text-center ${
+            className={`px-3.5 py-2.5 rounded-xl sm:rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer text-center ${
               activeSection === 'users'
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
-                : 'text-slate-600 hover:bg-slate-100'
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/25'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
             }`}
           >
             <Users className="w-4 h-4 shrink-0" />
             <span className="truncate">2. User Master</span>
+            <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+              activeSection === 'users' ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-700'
+            }`}>
+              {staffList.length}
+            </span>
           </button>
 
           {/* 3. Audit Logs */}
           <button
             type="button"
             onClick={() => handleSwitchSection('audit')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer text-center ${
+            className={`px-3.5 py-2.5 rounded-xl sm:rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer text-center ${
               activeSection === 'audit'
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
-                : 'text-slate-600 hover:bg-slate-100'
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/25'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
             }`}
           >
             <Layers className="w-4 h-4 shrink-0" />
@@ -1392,16 +1422,24 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
           <button
             type="button"
             onClick={handleSettingsTabClick}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer text-center ${
+            className={`px-3.5 py-2.5 rounded-xl sm:rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer text-center ${
               activeSection === 'settings' && isSettingsUnlocked
-                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
-                : 'text-slate-600 hover:bg-slate-100'
+                ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/25'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
             }`}
           >
             <Settings className="w-4 h-4 shrink-0" />
             <span className="truncate">4. Settings</span>
-            {(!isSettingsUnlocked || activeSection !== 'settings') && (
-              <Lock className="w-3 h-3 text-amber-500 shrink-0" />
+            {(!isSettingsUnlocked || activeSection !== 'settings') ? (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
+                <Lock className="w-2.5 h-2.5 mr-0.5" />
+                PIN
+              </span>
+            ) : (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                <Unlock className="w-2.5 h-2.5 mr-0.5" />
+                Open
+              </span>
             )}
           </button>
         </div>
@@ -1410,9 +1448,9 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
           type="button"
           onClick={loadData}
           disabled={isLoading}
-          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+          className="px-4 py-2.5 bg-slate-100/90 hover:bg-slate-200/90 text-slate-700 rounded-xl sm:rounded-2xl text-xs font-black transition flex items-center justify-center gap-2 cursor-pointer shrink-0 border border-slate-200/60 active:scale-95"
         >
-          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-emerald-600' : 'text-slate-500'}`} />
           <span>Refresh</span>
         </button>
       </div>
@@ -2304,63 +2342,77 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                   </tr>
                 ) : (
                   filteredStaffList.map(stf => (
-                    <tr key={stf.id} className="hover:bg-slate-50/70 transition">
-                      <td className="py-3 px-3 font-bold text-slate-900">
-                        {stf.name}
+                    <tr key={stf.id} className="hover:bg-slate-50/80 transition group">
+                      <td className="py-3.5 px-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shrink-0 shadow-2xs ${
+                            stf.role === 'SUPER_ADMIN' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
+                            stf.role === 'GATE' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          }`}>
+                            {stf.name ? stf.name.slice(0, 2).toUpperCase() : 'ST'}
+                          </div>
+                          <div>
+                            <div className="font-black text-slate-900 text-xs tracking-tight">{stf.name}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">{stf.id.slice(0, 8)}...</div>
+                          </div>
+                        </div>
                       </td>
-                      <td className="py-3 px-3 font-mono text-slate-600">
+                      <td className="py-3.5 px-3 font-mono text-slate-700 font-bold">
                         {stf.email}
                       </td>
-                      <td className="py-3 px-3">
-                        <div className="inline-flex items-center gap-1.5 bg-slate-100/90 hover:bg-slate-200/80 px-2 py-0.5 rounded-lg border border-slate-200">
-                          <span className="font-mono text-xs font-bold text-slate-800">
+                      <td className="py-3.5 px-3">
+                        <div className="inline-flex items-center gap-1.5 bg-slate-100/90 hover:bg-slate-200/80 px-2.5 py-1 rounded-xl border border-slate-200/80 shadow-2xs">
+                          <span className="font-mono text-xs font-black text-slate-800">
                             {visibleTablePasswords[stf.id] ? dbService.getStaffPassword(stf.id, stf.email, stf.role) : '••••••••'}
                           </span>
                           <button
                             type="button"
                             onClick={() => setVisibleTablePasswords(prev => ({ ...prev, [stf.id]: !prev[stf.id] }))}
-                            className="text-slate-400 hover:text-slate-700 cursor-pointer p-0.5"
+                            className="text-slate-400 hover:text-slate-700 cursor-pointer p-0.5 transition"
                             title={visibleTablePasswords[stf.id] ? "Hide password" : "Show password"}
                           >
                             {visibleTablePasswords[stf.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                           </button>
                         </div>
                       </td>
-                      <td className="py-3 px-3 whitespace-nowrap">
+                      <td className="py-3.5 px-3 whitespace-nowrap">
                         {renderDeviceBadge(stf.system_name || (stf.role === 'SUPER_ADMIN' ? 'SHWETANK SYSTEM' : stf.role === 'GATE' ? 'Gate 1 Mobile Scanner' : 'Ticket Counter 1 PC'))}
                       </td>
-                      <td className="py-3 px-3 text-slate-600">
+                      <td className="py-3.5 px-3 text-slate-600 font-medium">
                         {stf.phone || '—'}
                       </td>
-                      <td className="py-3 px-3">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ${
-                          stf.role === 'SUPER_ADMIN' ? 'bg-purple-100 text-purple-800' :
-                          stf.role === 'MANAGER' ? 'bg-indigo-100 text-indigo-800' :
-                          stf.role === 'GATE' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                      <td className="py-3.5 px-3">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border ${
+                          stf.role === 'SUPER_ADMIN' ? 'bg-purple-50 text-purple-800 border-purple-200' :
+                          stf.role === 'MANAGER' ? 'bg-indigo-50 text-indigo-800 border-indigo-200' :
+                          stf.role === 'GATE' ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
                         }`}>
                           {stf.role.replace('_', ' ')}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-slate-600">
+                      <td className="py-3.5 px-3 text-slate-600">
                         {stf.role === 'GATE' ? (
-                          <span>Gate: <strong>{stf.gate_code || 'GATE-01'}</strong></span>
+                          <span className="bg-slate-100 px-2 py-0.5 rounded text-[11px] font-bold text-slate-700">Gate: <strong>{stf.gate_code || 'GATE-01'}</strong></span>
                         ) : (
-                          <span>Counter: <strong>{stf.counter_code || 'CTR-01'}</strong></span>
+                          <span className="bg-slate-100 px-2 py-0.5 rounded text-[11px] font-bold text-slate-700">Counter: <strong>{stf.counter_code || 'CTR-01'}</strong></span>
                         )}
                       </td>
-                      <td className="py-3 px-3">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          stf.enabled ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+                      <td className="py-3.5 px-3 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border ${
+                          stf.enabled 
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                            : 'bg-red-50 text-red-800 border-red-200'
                         }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${stf.enabled ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
                           {stf.enabled ? 'Active' : 'Disabled'}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="py-3.5 px-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"
                             onClick={() => handleOpenEditStaff(stf)}
-                            title="Edit Staff"
+                            title="Edit Staff Credentials"
                             className="p-1.5 hover:bg-slate-200 text-slate-600 rounded-lg transition cursor-pointer"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -2368,7 +2420,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                           <button
                             type="button"
                             onClick={() => handleOpenChangePassword(stf)}
-                            title="Change Password"
+                            title="Reset Staff Password"
                             className="p-1.5 hover:bg-amber-100 text-amber-700 rounded-lg transition cursor-pointer"
                           >
                             <KeyRound className="w-4 h-4" />
@@ -2383,7 +2435,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                                   stf.enabled ? 'hover:bg-amber-100 text-amber-600' : 'hover:bg-emerald-100 text-emerald-600'
                                 }`}
                               >
-                                <Shield className="w-4 h-4" />
+                                {stf.enabled ? <UserCheck className="w-4 h-4" /> : <UserX className="w-4 h-4" />}
                               </button>
                               <button
                                 type="button"
@@ -2625,31 +2677,36 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
           </div>
 
           {/* Official Gazette Pricing Master & Rate Editor */}
-          <div className="bg-slate-50 p-5 sm:p-6 rounded-2xl border border-slate-200 space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
-              <div>
-                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                  <span className="text-emerald-700 font-black text-lg">₹</span>
-                  Official Pricing Master & Rate Editor
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Change official rates for single entry tickets and subscription passes. Updates take effect immediately.
-                </p>
+          <div className="bg-gradient-to-br from-white via-slate-50/50 to-emerald-50/30 p-5 sm:p-7 rounded-3xl border border-slate-200 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl shadow-sm shadow-emerald-500/20 shrink-0">
+                  <IndianRupee className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    Official Pricing Master & Rate Editor
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Configure official gazette rates for single entry visitor tickets and subscription passes.
+                  </p>
+                </div>
               </div>
-              <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-black shrink-0">
-                Live Pricing Active
+              <span className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-black shrink-0 border border-emerald-200/80 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                Live Rates Enforced
               </span>
             </div>
 
             {pricingSaveSuccess && (
-              <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+              <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-2xl text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>{pricingSaveSuccess}</span>
               </div>
             )}
 
             {pricingSaveError && (
-              <div className="p-3.5 bg-rose-50 border border-rose-300 rounded-xl text-rose-800 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+              <div className="p-3.5 bg-rose-50 border border-rose-300 rounded-2xl text-rose-800 text-xs font-bold flex items-center gap-2 animate-in fade-in">
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                 <span>{pricingSaveError}</span>
               </div>
@@ -2658,17 +2715,18 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
             <form onSubmit={handleSaveRates} className="space-y-4 pt-1">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* 1. Single Ticket Rate */}
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3 hover:border-emerald-200 transition">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <TicketIcon className="w-3.5 h-3.5 text-emerald-600" />
                       Single Entry Ticket
                     </label>
-                    <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded">
+                    <span className="text-[10px] bg-emerald-50 text-emerald-800 font-black px-2 py-0.5 rounded-md border border-emerald-200/60">
                       Per Person
                     </span>
                   </div>
                   <div className="relative">
-                    <span className="absolute left-3.5 top-2.5 text-base font-bold text-slate-400">₹</span>
+                    <span className="absolute left-3.5 top-2.5 text-base font-black text-slate-400">₹</span>
                     <input
                       type="number"
                       min="1"
@@ -2676,19 +2734,20 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                       required
                       value={ratesForm.ticket_rate_inr}
                       onChange={e => setRatesForm({ ...ratesForm, ticket_rate_inr: Number(e.target.value) })}
-                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border-2 border-slate-200 rounded-xl text-lg font-black text-slate-900 focus:bg-white focus:border-emerald-600 focus:outline-none transition"
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border-2 border-slate-200 rounded-xl text-xl font-black text-slate-900 focus:bg-white focus:border-emerald-600 focus:outline-none transition shadow-inner"
                     />
                   </div>
-                  <p className="text-[11px] text-slate-500 font-medium">Applied per person at Ticket Counter POS.</p>
+                  <p className="text-[11px] text-slate-500 font-medium">Auto-calculated per visitor at Counter POS.</p>
                 </div>
 
                 {/* 2. Monthly Pass Rates (1, 2, 3 Months) */}
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-2.5">
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3 hover:border-blue-200 transition">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5 text-blue-600" />
                       Monthly Passes (1, 2, 3 Mo)
                     </label>
-                    <span className="text-[10px] bg-blue-50 text-blue-800 font-bold px-2 py-0.5 rounded">
+                    <span className="text-[10px] bg-blue-50 text-blue-800 font-black px-2 py-0.5 rounded-md border border-blue-200/60">
                       Subscriptions
                     </span>
                   </div>
@@ -2705,7 +2764,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                           required
                           value={ratesForm.monthly_pass_1m_inr}
                           onChange={e => setRatesForm({ ...ratesForm, monthly_pass_1m_inr: Number(e.target.value) })}
-                          className="w-full pl-7 pr-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-900 focus:bg-white focus:border-emerald-600 focus:outline-none"
+                          className="w-full pl-7 pr-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-black text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none transition"
                         />
                       </div>
                     </div>
@@ -2721,7 +2780,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                           required
                           value={ratesForm.monthly_pass_2m_inr}
                           onChange={e => setRatesForm({ ...ratesForm, monthly_pass_2m_inr: Number(e.target.value) })}
-                          className="w-full pl-7 pr-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-900 focus:bg-white focus:border-emerald-600 focus:outline-none"
+                          className="w-full pl-7 pr-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-black text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none transition"
                         />
                       </div>
                     </div>
@@ -2737,7 +2796,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                           required
                           value={ratesForm.monthly_pass_3m_inr}
                           onChange={e => setRatesForm({ ...ratesForm, monthly_pass_3m_inr: Number(e.target.value) })}
-                          className="w-full pl-7 pr-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-900 focus:bg-white focus:border-emerald-600 focus:outline-none"
+                          className="w-full pl-7 pr-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-black text-slate-900 focus:bg-white focus:border-blue-600 focus:outline-none transition"
                         />
                       </div>
                     </div>
@@ -2745,17 +2804,18 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                 </div>
 
                 {/* 3. Yearly Pass Rate */}
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3 hover:border-purple-200 transition">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                      Yearly Pass
+                    <label className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+                      Yearly Walker Pass
                     </label>
-                    <span className="text-[10px] bg-purple-50 text-purple-800 font-bold px-2 py-0.5 rounded">
+                    <span className="text-[10px] bg-purple-50 text-purple-800 font-black px-2 py-0.5 rounded-md border border-purple-200/60">
                       365 Days
                     </span>
                   </div>
                   <div className="relative">
-                    <span className="absolute left-3.5 top-2.5 text-base font-bold text-slate-400">₹</span>
+                    <span className="absolute left-3.5 top-2.5 text-base font-black text-slate-400">₹</span>
                     <input
                       type="number"
                       min="1"
@@ -2763,21 +2823,21 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                       required
                       value={ratesForm.yearly_pass_inr}
                       onChange={e => setRatesForm({ ...ratesForm, yearly_pass_inr: Number(e.target.value) })}
-                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border-2 border-slate-200 rounded-xl text-lg font-black text-slate-900 focus:bg-white focus:border-emerald-600 focus:outline-none transition"
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 border-2 border-slate-200 rounded-xl text-xl font-black text-slate-900 focus:bg-white focus:border-purple-600 focus:outline-none transition shadow-inner"
                     />
                   </div>
-                  <p className="text-[11px] text-slate-500 font-medium">Applied for annual subscription pass.</p>
+                  <p className="text-[11px] text-slate-500 font-medium">Applied for 1-year annual subscription pass.</p>
                 </div>
               </div>
 
               {/* Save Button */}
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <span className="text-xs text-slate-500">
-                  Note: Changes are saved to system storage and applied immediately to Ticket POS & Passes.
+                <span className="text-xs text-slate-500 font-medium">
+                  Note: Changes are updated across Ticket Counter, Passes, and Database Functions immediately.
                 </span>
                 <button
                   type="submit"
-                  className="w-full sm:w-auto px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 shadow-md transition cursor-pointer"
+                  className="w-full sm:w-auto px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white font-black rounded-xl text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-600/25 transition cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
                   <span>Save & Apply New Pricing Rates</span>
@@ -2787,29 +2847,35 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
           </div>
 
           {/* Bluetooth Thermal Printer Card */}
-          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3">
+          <div className="bg-gradient-to-br from-white via-slate-50/50 to-blue-50/30 p-5 sm:p-6 rounded-3xl border border-slate-200 shadow-xs space-y-3.5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Bluetooth className="w-5 h-5 text-blue-600" />
-                <h3 className="text-sm font-black text-slate-900">Bluetooth Thermal Printer</h3>
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-2xl shadow-sm shadow-blue-500/20 shrink-0">
+                  <Bluetooth className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-black text-slate-900">Bluetooth Thermal Slip Printer</h3>
+                  <p className="text-xs text-slate-500 font-medium">
+                    ESC/POS 3-Inch (76.20mm) thermal printer pairing via Web Bluetooth.
+                  </p>
+                </div>
               </div>
-              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                printerService.isConnected ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
+              <span className={`text-[11px] font-black px-3 py-1 rounded-full border flex items-center gap-1.5 ${
+                printerService.isConnected 
+                  ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 
+                  : 'bg-slate-100 text-slate-700 border-slate-200'
               }`}>
+                <span className={`w-2 h-2 rounded-full ${printerService.isConnected ? 'bg-emerald-600 animate-ping' : 'bg-slate-400'}`} />
                 {btStatus}
               </span>
             </div>
 
-            <p className="text-xs text-slate-600">
-              Pair your Bluetooth ESC/POS thermal receipt printer directly via Web Bluetooth in Chrome.
-            </p>
-
-            <div className="flex gap-2 pt-1">
+            <div className="flex flex-wrap gap-2 pt-1">
               <button
                 type="button"
                 disabled={isBluetoothConnecting}
                 onClick={handlePairBluetooth}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow"
+                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black transition flex items-center gap-2 disabled:opacity-50 cursor-pointer shadow-sm shadow-blue-500/20 active:scale-95"
               >
                 <Bluetooth className="w-4 h-4" />
                 {isBluetoothConnecting ? 'Searching Devices...' : 'Pair Bluetooth Printer'}
@@ -2819,7 +2885,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                 <button
                   type="button"
                   onClick={handleDisconnectBluetooth}
-                  className="px-4 py-2 bg-white hover:bg-red-50 text-red-600 rounded-xl text-xs font-bold transition border border-red-200 cursor-pointer"
+                  className="px-4 py-2 bg-white hover:bg-red-50 text-red-600 rounded-xl text-xs font-bold transition border border-red-200 cursor-pointer active:scale-95"
                 >
                   Disconnect
                 </button>
@@ -2828,103 +2894,191 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
           </div>
 
           {/* Terminal & System Device Identification Card */}
-          <div className="bg-slate-50 p-5 sm:p-6 rounded-2xl border border-slate-200 space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
-              <div>
-                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                  <Monitor className="w-5 h-5 text-emerald-600" />
-                  Terminal & System Identification
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Device model name and terminal identifier recorded across all Ticket generations, Gate scans, and Activity logs.
-                </p>
+          <div className="bg-gradient-to-br from-white via-slate-50/50 to-emerald-50/30 p-5 sm:p-7 rounded-3xl border border-slate-200 shadow-xs space-y-5 relative overflow-hidden">
+            {/* Subtle background glow */}
+            <div className="absolute -top-12 -right-12 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-2xl shadow-sm shadow-emerald-500/20 shrink-0">
+                  <Monitor className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    Terminal & System Identification
+                  </h3>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Hardware signature, OS and terminal nicknames recorded across every Ticket, Gate Admission, and Security Audit event.
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                {renderDeviceBadge()}
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block" />
+                  <span>Live Signature:</span>
+                  {renderDeviceBadge()}
+                </span>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                    Auto-Detected Hardware & OS
-                  </span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    getAutoDetectedHardware().isMobile 
-                      ? 'bg-sky-100 text-sky-800' 
-                      : 'bg-emerald-100 text-emerald-800'
-                  }`}>
-                    {getAutoDetectedHardware().isMobile ? '📱 Mobile Device' : '🖥️ Desktop Terminal'}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+              {/* Box 1: Auto-Detected Hardware & OS */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3 relative flex flex-col justify-between hover:border-emerald-200 transition">
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <Cpu className="w-3.5 h-3.5 text-emerald-600" />
+                      Auto-Detected Hardware & OS
+                    </span>
+                    <span className={`text-[10px] font-black px-2.5 py-1 rounded-full flex items-center gap-1 ${
+                      getAutoDetectedHardware().isMobile 
+                        ? 'bg-sky-100 text-sky-800 border border-sky-200' 
+                        : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                    }`}>
+                      {getAutoDetectedHardware().isMobile ? (
+                        <>
+                          <Smartphone className="w-3 h-3" />
+                          <span>Mobile Device</span>
+                        </>
+                      ) : (
+                        <>
+                          <Monitor className="w-3 h-3" />
+                          <span>Desktop PC Terminal</span>
+                        </>
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 space-y-2">
+                    <div className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                      {getAutoDetectedHardware().hardwareSummary}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs px-2.5 py-1 bg-slate-100 rounded-lg text-slate-700 font-bold border border-slate-200 font-mono">
+                        OS: {getAutoDetectedHardware().os}
+                      </span>
+                      <span className="text-xs px-2.5 py-1 bg-slate-100 rounded-lg text-slate-700 font-bold border border-slate-200 font-mono">
+                        Browser: {getAutoDetectedHardware().browser}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-medium">
+                  <span>Engine: WebGL GPU + User Agent</span>
+                  <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    Verified Pure
                   </span>
                 </div>
-                <div className="text-sm font-bold text-slate-900 flex flex-wrap items-center gap-2">
-                  <span>{getAutoDetectedHardware().hardwareSummary}</span>
-                  <span className="text-xs px-2 py-0.5 bg-slate-100 rounded text-slate-600 font-mono">
-                    {getAutoDetectedHardware().os} • {getAutoDetectedHardware().browser}
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400">
-                  Automatically extracted from browser User Agent, GPU WebGL chip, and screen context.
-                </p>
               </div>
 
-              <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                    Custom Terminal Nickname (Optional)
-                  </label>
-                  {dbService.getCurrentStaff()?.system_name && (
-                    <span className="text-[10px] font-bold text-slate-500 font-mono">
-                      Staff Default: {dbService.getCurrentStaff()?.system_name}
-                    </span>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="e.g. SHWETANK SYSTEM, Counter 1 PC, Gate 1 Scanner"
-                    value={customDeviceInput}
-                    onChange={e => setCustomDeviceInput(e.target.value)}
-                    className="flex-1 px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSaveCustomDeviceName}
-                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
-                  >
-                    <Save className="w-3.5 h-3.5" />
-                    <span>Save</span>
-                  </button>
-                  {customDeviceInput && (
+              {/* Box 2: Custom Terminal Nickname */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-3 relative flex flex-col justify-between hover:border-emerald-200 transition">
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[11px] font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <Laptop className="w-3.5 h-3.5 text-emerald-600" />
+                      Custom Terminal Nickname (Optional)
+                    </label>
+                    {dbService.getCurrentStaff()?.system_name && (
+                      <span className="text-[10px] font-bold text-slate-500 font-mono bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                        Default: {dbService.getCurrentStaff()?.system_name}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="e.g. SHWETANK SYSTEM, Counter 1 PC, Gate 1 Scanner"
+                      value={customDeviceInput}
+                      onChange={e => setCustomDeviceInput(e.target.value)}
+                      className="flex-1 px-3.5 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition shadow-inner"
+                    />
                     <button
                       type="button"
-                      onClick={handleResetCustomDeviceName}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition cursor-pointer"
-                      title="Reset to Auto-detect"
+                      onClick={handleSaveCustomDeviceName}
+                      className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-md shadow-emerald-600/20 cursor-pointer"
                     >
-                      Reset
+                      <Save className="w-3.5 h-3.5" />
+                      <span>Save</span>
                     </button>
-                  )}
+                    {customDeviceInput && (
+                      <button
+                        type="button"
+                        onClick={handleResetCustomDeviceName}
+                        className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition cursor-pointer border border-slate-200"
+                        title="Reset to Auto-detect"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+
+                  {/* 1-Click Quick Preset Chips */}
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Quick Fill:</span>
+                    <button
+                      type="button"
+                      onClick={() => setCustomDeviceInput('SHWETANK SYSTEM')}
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 transition cursor-pointer"
+                    >
+                      SHWETANK SYSTEM
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCustomDeviceInput('Ticket Counter 1 PC')}
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition cursor-pointer"
+                    >
+                      Ticket Counter 1 PC
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCustomDeviceInput('Gate 1 Mobile Scanner')}
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 transition cursor-pointer"
+                    >
+                      Gate 1 Mobile Scanner
+                    </button>
+                  </div>
                 </div>
+
                 {deviceSaveMessage && (
-                  <p className="text-[11px] text-emerald-700 font-bold">{deviceSaveMessage}</p>
+                  <div className="pt-2 border-t border-slate-100 text-[11px] text-emerald-700 font-black flex items-center gap-1 animate-in fade-in">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>{deviceSaveMessage}</span>
+                  </div>
                 )}
               </div>
             </div>
 
             {/* Current Active Session & Assigned System Strip */}
-            <div className="bg-white px-4 py-3 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-slate-600">Logged-in Operator:</span>
-                <span className="font-bold text-slate-900">{dbService.getCurrentStaff()?.name || 'Administrator'}</span>
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                  {dbService.getCurrentStaff()?.role || 'SUPER_ADMIN'}
-                </span>
+            <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white px-5 py-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-md">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-emerald-500 text-white font-black text-xs flex items-center justify-center ring-2 ring-white/20 shrink-0">
+                  {dbService.getCurrentStaff()?.name ? dbService.getCurrentStaff()!.name.slice(0, 2).toUpperCase() : 'AD'}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-white text-sm">
+                      {dbService.getCurrentStaff()?.name || 'Administrator'}
+                    </span>
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      {dbService.getCurrentStaff()?.role || 'SUPER_ADMIN'}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 font-mono">
+                    Staff Email: {dbService.getCurrentStaff()?.email || 'admin@vedupvan.local'}
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-slate-600">Active Recorded Device:</span>
-                <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
+
+              <div className="flex flex-col sm:items-end gap-1">
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">
+                  Active Stamped Terminal Name
+                </span>
+                <span className="font-mono font-bold text-xs text-emerald-300 bg-slate-950/60 px-3 py-1 rounded-lg border border-slate-700/80">
                   {getSystemDeviceInfo().deviceName}
                 </span>
               </div>
