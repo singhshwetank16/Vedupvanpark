@@ -690,15 +690,9 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
               <Smartphone className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="font-black text-slate-900 text-sm tracking-tight flex items-center gap-2">
-                <span>Pass Entry via Mobile Number</span>
-                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
-                  Forgot Pass
-                </span>
+              <h2 className="font-black text-slate-900 text-sm tracking-tight">
+                Pass Entry via Mobile Number
               </h2>
-              <p className="text-[11px] text-slate-500 font-semibold">
-                Pass lana bhul gaye to registered 10-digit mobile number se verify karke entry grant karein
-              </p>
             </div>
           </div>
         </div>
