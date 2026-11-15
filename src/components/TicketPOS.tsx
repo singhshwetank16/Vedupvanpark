@@ -139,41 +139,48 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
       {/* Left Column: POS Generation */}
       <div className="lg:col-span-8 space-y-4 sm:space-y-5">
         {/* Header Banner with Official Logo */}
-        <div className="bg-white border border-emerald-100 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
-          <div className="flex items-center gap-3 sm:gap-4 text-center sm:text-left">
-            <img
-              src={LOGO_URL}
-              alt="Ved Upvan Park Logo"
-              className="w-12 h-12 sm:w-16 sm:h-16 object-contain rounded-2xl border border-emerald-50 bg-emerald-50/50 p-1 shrink-0"
-            />
+        <div className="bg-gradient-to-br from-white via-white to-emerald-50/50 border border-white/60 rounded-3xl p-4 sm:p-6 shadow-xl shadow-emerald-950/20 backdrop-blur-xl flex flex-col sm:flex-row items-center justify-between gap-4 relative overflow-hidden group">
+          {/* Subtle Ambient Glow */}
+          <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent rounded-full blur-3xl pointer-events-none -mr-16 -mt-16" />
+
+          <div className="flex items-center gap-3.5 sm:gap-4 text-center sm:text-left relative z-10">
+            <div className="relative">
+              <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl blur-xs opacity-75 group-hover:opacity-100 transition duration-300" />
+              <img
+                src={LOGO_URL}
+                alt="Ved Upvan Park Logo"
+                className="relative w-14 h-14 sm:w-16 sm:h-16 object-contain rounded-2xl border border-white/80 bg-white p-1.5 shadow-md shadow-emerald-950/10 shrink-0"
+              />
+            </div>
             <div>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] sm:text-[11px] font-bold uppercase mb-0.5 sm:mb-1">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[10px] sm:text-[11px] font-black uppercase tracking-wider shadow-xs shadow-emerald-600/20 mb-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                 Ticket Counter POS • {config.counter_code}
               </div>
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                 {config.park_settings.park_name}
               </h1>
-              <p className="text-emerald-700 text-[11px] sm:text-xs font-bold">
+              <p className="text-emerald-800 text-[11px] sm:text-xs font-bold tracking-tight">
                 {config.park_settings.organization_name} • {config.park_settings.address}
               </p>
             </div>
           </div>
 
-          <div className="bg-slate-50 border border-slate-200 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-xl sm:rounded-2xl text-center sm:text-right shrink-0">
-            <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-500 font-semibold justify-center sm:justify-end">
-              <Clock className="w-3.5 h-3.5 text-emerald-600" />
+          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 text-white border border-slate-700/80 px-4 py-3 rounded-2xl text-center sm:text-right shrink-0 shadow-lg shadow-black/25 relative z-10 space-y-1">
+            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-emerald-400 font-bold justify-center sm:justify-end uppercase tracking-wider">
+              <Clock className="w-3.5 h-3.5 text-emerald-400" />
               <span>Current Time (IST)</span>
             </div>
-            <div className="text-lg sm:text-xl font-mono font-bold text-slate-900">
+            <div className="text-xl sm:text-2xl font-mono font-black text-white tracking-wider">
               {currentTime.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </div>
-            <div className="text-[10px] sm:text-[11px] font-medium text-slate-500">
+            <div className="text-[10px] sm:text-[11px] font-bold text-slate-400">
               {currentTime.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' })}
             </div>
             <button
               type="button"
               onClick={() => setIsReportModalOpen(true)}
-              className="mt-2 w-full px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+              className="mt-2 w-full px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-emerald-600/30"
               title="Open Ticket Generate Report"
             >
               <FileText className="w-3.5 h-3.5" />
@@ -183,24 +190,27 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
         </div>
 
         {/* Step 1: Select Persons */}
-        <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-5">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/60 rounded-3xl p-5 sm:p-7 shadow-xl shadow-emerald-950/20 backdrop-blur-xl space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
             <div>
-              <h2 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
-                <Users className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" />
-                1. Select Number of Persons
+              <h2 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2 tracking-tight">
+                <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-xs shadow-emerald-500/30 shrink-0">
+                  <Users className="w-4 h-4" />
+                </div>
+                <span>1. Select Number of Persons</span>
               </h2>
-              <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
+              <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5">
                 Quickly tap the number of persons for this ticket
               </p>
             </div>
-            <div className="text-xs bg-emerald-50 text-emerald-800 font-bold px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl border border-emerald-200 shrink-0">
+            <div className="text-xs bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-800 font-black px-3.5 py-1.5 rounded-xl border border-emerald-200/80 shadow-2xs shrink-0 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               Rate: ₹{unitRateInr.toFixed(0)} / person
             </div>
           </div>
 
-          {/* Quick Touch Buttons */}
-          <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 sm:gap-2.5">
+          {/* Quick Touch Buttons with Vibrant Gradients */}
+          <div className="grid grid-cols-4 sm:grid-cols-8 gap-2.5 sm:gap-3">
             {quickPersons.map(count => {
               const isSelected = persons === count;
               const cost = count * unitRateInr;
@@ -209,14 +219,24 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
                   key={count}
                   type="button"
                   onClick={() => setPersons(count)}
-                  className={`py-2.5 sm:py-3.5 px-1 sm:px-2 rounded-xl sm:rounded-2xl flex flex-col items-center justify-center transition-all duration-150 transform active:scale-95 border cursor-pointer ${
+                  className={`py-3 sm:py-4 px-1.5 sm:px-2 rounded-2xl flex flex-col items-center justify-center transition-all duration-200 transform cursor-pointer relative overflow-hidden group ${
                     isSelected
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/30 scale-[1.04]'
-                      : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200'
+                      ? 'bg-gradient-to-br from-emerald-600 via-teal-600 to-emerald-500 text-white shadow-lg shadow-emerald-600/35 ring-2 ring-emerald-400 scale-[1.06] border-0'
+                      : 'bg-white hover:bg-emerald-50/70 text-slate-800 border border-slate-200/90 hover:border-emerald-300 shadow-2xs hover:shadow-md hover:scale-[1.02]'
                   }`}
                 >
-                  <span className="text-lg sm:text-xl font-black">{count}</span>
-                  <span className={`text-[10px] font-bold ${isSelected ? 'text-emerald-100' : 'text-slate-500'}`}>
+                  {/* Subtle inner highlight */}
+                  {isSelected && (
+                    <div className="absolute top-0 right-0 w-8 h-8 bg-white/20 rounded-full blur-sm -mr-2 -mt-2" />
+                  )}
+                  <span className={`text-xl sm:text-2xl font-black tracking-tight ${isSelected ? 'text-white' : 'text-slate-900 group-hover:text-emerald-700'}`}>
+                    {count}
+                  </span>
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full mt-1 transition ${
+                    isSelected 
+                      ? 'bg-white/25 text-white' 
+                      : 'bg-slate-100 text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-800'
+                  }`}>
                     ₹{cost}
                   </span>
                 </button>
@@ -225,15 +245,18 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
           </div>
 
           {/* Stepper for custom person count */}
-          <div className="flex items-center justify-between bg-slate-50 p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl border border-slate-200">
-            <span className="text-xs font-bold text-slate-700">
-              Custom Person Count:
-            </span>
-            <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center justify-between bg-gradient-to-r from-slate-50 to-emerald-50/40 p-3 sm:p-4 rounded-2xl border border-slate-200/90 shadow-2xs">
+            <div>
+              <span className="text-xs font-black text-slate-800 uppercase tracking-wider block">
+                Custom Person Count
+              </span>
+              <span className="text-[11px] text-slate-500 font-medium">For groups larger than 10 or custom numbers</span>
+            </div>
+            <div className="flex items-center gap-2 sm:gap-2.5">
               <button
                 type="button"
                 onClick={() => setPersons(Math.max(1, persons - 1))}
-                className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white text-slate-800 text-lg font-bold hover:bg-slate-100 active:scale-90 transition border border-slate-300 shadow-sm cursor-pointer"
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white hover:bg-emerald-50 text-slate-800 hover:text-emerald-700 text-xl font-black active:scale-90 transition border border-slate-200 shadow-xs cursor-pointer flex items-center justify-center"
               >
                 -
               </button>
@@ -252,12 +275,12 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
                   const val = e.target.value === '' ? 0 : parseInt(e.target.value);
                   setPersons(isNaN(val) ? 0 : Math.min(50, Math.max(0, val)));
                 }}
-                className="w-16 sm:w-20 text-center py-1.5 sm:py-2 bg-white border border-slate-300 rounded-xl text-lg sm:text-xl font-black text-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-16 sm:w-20 text-center py-2 bg-white border-2 border-emerald-500/50 rounded-xl text-xl sm:text-2xl font-black text-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner"
               />
               <button
                 type="button"
                 onClick={() => setPersons(persons + 1)}
-                className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-white text-slate-800 text-lg font-bold hover:bg-slate-100 active:scale-90 transition border border-slate-300 shadow-sm cursor-pointer"
+                className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white hover:bg-emerald-50 text-slate-800 hover:text-emerald-700 text-xl font-black active:scale-90 transition border border-slate-200 shadow-xs cursor-pointer flex items-center justify-center"
               >
                 +
               </button>
@@ -265,58 +288,77 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
           </div>
 
           {/* Step 2: Payment Mode */}
-          <div className="space-y-3 pt-2 border-t border-slate-100">
-            <label className="text-xs font-bold text-slate-700">
-              2. Payment Mode
-            </label>
-            <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+          <div className="space-y-3.5 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                <Banknote className="w-4 h-4 text-emerald-600" />
+                2. Select Payment Mode
+              </label>
+              <span className="text-[11px] text-slate-500 font-medium">Cash or instant QR scan</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <button
                 type="button"
                 onClick={() => setPaymentMode('CASH')}
-                className={`py-3 sm:py-3.5 px-3 sm:px-4 rounded-xl sm:rounded-2xl font-black flex items-center justify-center gap-2 sm:gap-2.5 border text-sm sm:text-base transition cursor-pointer ${
+                className={`py-4 sm:py-4.5 px-4 sm:px-5 rounded-2xl font-black flex items-center justify-center gap-3 transition-all duration-200 cursor-pointer relative overflow-hidden group ${
                   paymentMode === 'CASH'
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/25 ring-2 ring-emerald-600/30'
-                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 text-white shadow-lg shadow-emerald-600/30 ring-2 ring-emerald-400 scale-[1.02]'
+                    : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:border-slate-300 shadow-2xs'
                 }`}
               >
-                <Banknote className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span>1. Cash</span>
+                <div className={`p-2 rounded-xl ${paymentMode === 'CASH' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'}`}>
+                  <Banknote className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <div className="text-left">
+                  <div className="text-sm sm:text-base font-black">1. Cash Payment</div>
+                  <div className={`text-[10px] sm:text-[11px] font-bold ${paymentMode === 'CASH' ? 'text-emerald-100' : 'text-slate-400'}`}>
+                    Physical Currency Received
+                  </div>
+                </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setPaymentMode('UPI')}
-                className={`py-3 sm:py-3.5 px-3 sm:px-4 rounded-xl sm:rounded-2xl font-black flex items-center justify-center gap-2 sm:gap-2.5 border text-sm sm:text-base transition cursor-pointer ${
+                className={`py-4 sm:py-4.5 px-4 sm:px-5 rounded-2xl font-black flex items-center justify-center gap-3 transition-all duration-200 cursor-pointer relative overflow-hidden group ${
                   paymentMode === 'UPI'
-                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/25 ring-2 ring-emerald-600/30'
-                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 text-white shadow-lg shadow-blue-600/30 ring-2 ring-blue-400 scale-[1.02]'
+                    : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:border-slate-300 shadow-2xs'
                 }`}
               >
-                <QrCode className="w-4 h-4 sm:w-5 sm:h-5" />
-                <span>2. UPI</span>
+                <div className={`p-2 rounded-xl ${paymentMode === 'UPI' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-800'}`}>
+                  <QrCode className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <div className="text-left">
+                  <div className="text-sm sm:text-base font-black">2. Digital UPI</div>
+                  <div className={`text-[10px] sm:text-[11px] font-bold ${paymentMode === 'UPI' ? 'text-blue-100' : 'text-slate-400'}`}>
+                    GPay / PhonePe / Paytm
+                  </div>
+                </div>
               </button>
             </div>
 
             {/* Dynamic Customer UPI QR Box when UPI is selected */}
             {paymentMode === 'UPI' && (
-              <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-3 sm:p-4 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 transition-all duration-200">
-                <div className="p-2 bg-white rounded-xl border border-emerald-200 shadow-sm shrink-0">
+              <div className="bg-gradient-to-r from-blue-50 via-indigo-50/60 to-blue-50 border border-blue-200/80 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center gap-4 sm:gap-5 shadow-xs animate-in fade-in duration-200">
+                <div className="p-2.5 bg-white rounded-2xl border border-blue-200 shadow-md shadow-blue-500/10 shrink-0 ring-4 ring-blue-50">
                   <QRCodeSVG
                     value={`upi://pay?pa=vedupvan@upi&pn=Ved%20Upvan%20Park&am=${totalAmountInr}&cu=INR&tn=Park%20Ticket%20${persons}%20Persons`}
-                    size={80}
+                    size={90}
                     level="M"
                   />
                 </div>
                 <div className="text-center sm:text-left space-y-1">
-                  <div className="text-xs font-black text-emerald-900 uppercase tracking-wide flex items-center justify-center sm:justify-start gap-1.5">
-                    <Smartphone className="w-4 h-4 text-emerald-700" />
+                  <div className="text-xs font-black text-blue-950 uppercase tracking-wide flex items-center justify-center sm:justify-start gap-1.5">
+                    <Smartphone className="w-4 h-4 text-blue-700" />
                     Customer Scan & Pay: ₹{totalAmountInr.toFixed(2)}
                   </div>
-                  <p className="text-xs text-slate-700">
-                    Ask customer to scan this QR code with <strong>Google Pay, PhonePe, Paytm, or BHIM</strong>.
+                  <p className="text-xs text-slate-700 font-medium">
+                    Show QR to visitor. Works with <strong>Google Pay, PhonePe, Paytm, and BHIM</strong>.
                   </p>
-                  <div className="text-[11px] text-emerald-800 font-semibold">
-                    Amount: ₹{totalAmountInr.toFixed(2)} • Persons: {persons}
+                  <div className="text-[11px] text-blue-900 font-black flex items-center gap-2 justify-center sm:justify-start">
+                    <span className="px-2 py-0.5 rounded-md bg-blue-100 border border-blue-200">Amount: ₹{totalAmountInr.toFixed(2)}</span>
+                    <span className="px-2 py-0.5 rounded-md bg-blue-100 border border-blue-200">Visitors: {persons}</span>
                   </div>
                 </div>
               </div>
@@ -325,14 +367,19 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
 
           {/* Step 3: Big Print Button */}
           <div className="pt-2 sm:pt-3">
-            <div className="bg-gradient-to-r from-emerald-700 to-green-600 text-white p-4 sm:p-5 rounded-xl sm:rounded-2xl shadow-lg shadow-emerald-700/20 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
-              <div className="text-center sm:text-left">
-                <div className="text-[10px] sm:text-xs text-emerald-100 font-bold uppercase tracking-wider">
-                  Total Payable Amount
+            <div className="bg-gradient-to-r from-emerald-800 via-emerald-600 to-teal-600 text-white p-5 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl shadow-emerald-900/30 flex flex-col sm:flex-row items-center justify-between gap-4 relative overflow-hidden">
+              {/* Subtle ambient light glow */}
+              <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-teal-300/20 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute -left-8 -top-8 w-40 h-40 bg-emerald-400/20 rounded-full blur-2xl pointer-events-none" />
+
+              <div className="text-center sm:text-left relative z-10">
+                <div className="text-[11px] text-emerald-200 font-black uppercase tracking-wider flex items-center gap-1.5 justify-center sm:justify-start">
+                  <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
+                  TOTAL PAYABLE AMOUNT
                 </div>
-                <div className="text-2xl sm:text-4xl font-black flex items-center justify-center sm:justify-start gap-1.5 mt-0.5">
-                  <span>₹{totalAmountInr.toFixed(2)}</span>
-                  <span className="text-xs sm:text-sm font-semibold text-emerald-100">
+                <div className="text-3xl sm:text-5xl font-black flex items-baseline justify-center sm:justify-start gap-2 mt-1 tracking-tight">
+                  <span className="drop-shadow-sm">₹{totalAmountInr.toFixed(2)}</span>
+                  <span className="text-sm sm:text-base font-bold text-emerald-100/90">
                     ({persons} {persons === 1 ? 'Person' : 'Persons'})
                   </span>
                 </div>
@@ -342,17 +389,19 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
                 type="button"
                 disabled={isGenerating}
                 onClick={handleGenerateAndPrint}
-                className="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 bg-white hover:bg-emerald-50 active:scale-95 text-emerald-800 font-black text-base sm:text-lg rounded-xl sm:rounded-2xl shadow-md flex items-center justify-center gap-2.5 sm:gap-3 transition disabled:opacity-50 cursor-pointer"
+                className="w-full sm:w-auto px-8 sm:px-10 py-4 sm:py-4.5 bg-white hover:bg-emerald-50 active:scale-95 text-emerald-900 font-black text-base sm:text-xl rounded-2xl shadow-xl shadow-black/25 flex items-center justify-center gap-3 transition-all duration-150 disabled:opacity-50 cursor-pointer relative z-10 group"
               >
                 {isGenerating ? (
                   <>
-                    <RefreshCw className="w-5 h-5 animate-spin" />
-                    Generating Ticket...
+                    <RefreshCw className="w-6 h-6 animate-spin text-emerald-700" />
+                    <span>Issuing & Printing...</span>
                   </>
                 ) : (
                   <>
-                    <Printer className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-700" />
-                    PRINT TICKET
+                    <div className="p-1.5 rounded-xl bg-emerald-100 group-hover:bg-emerald-200 transition">
+                      <Printer className="w-6 h-6 text-emerald-800" />
+                    </div>
+                    <span>PRINT TICKET</span>
                   </>
                 )}
               </button>
@@ -364,51 +413,51 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
       {/* Right Column: Live Shift Report, Receipt Preview & History */}
       <div className="lg:col-span-4 space-y-4 sm:space-y-5">
         {/* Live Counter Report Card: Tickets, Persons & Collection with Pay Mode */}
-        <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm space-y-3 sm:space-y-3.5">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+        <div className="bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/60 rounded-3xl p-5 shadow-xl shadow-emerald-950/20 backdrop-blur-xl space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-              <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+              <h3 className="font-black text-slate-900 text-xs uppercase tracking-wider">
                 Today's Counter Report
               </h3>
             </div>
-            <span className="text-[10px] bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+            <span className="text-[10px] bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black px-2.5 py-0.5 rounded-full shadow-xs shadow-emerald-600/20">
               LIVE SHIFT
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="bg-slate-50 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-slate-200">
-              <div className="text-[10px] sm:text-[11px] font-bold text-slate-500">Tickets Issued</div>
-              <div className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5">
-                {shiftSummary.totalTickets} <span className="text-xs font-semibold text-slate-400">Tkts</span>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-gradient-to-br from-white to-slate-50 p-3.5 rounded-2xl border border-slate-200/80 shadow-2xs">
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tickets Issued</div>
+              <div className="text-2xl font-black text-slate-900 mt-1 tracking-tight">
+                {shiftSummary.totalTickets} <span className="text-xs font-bold text-slate-400">Tkts</span>
               </div>
             </div>
 
-            <div className="bg-slate-50 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl border border-slate-200">
-              <div className="text-[10px] sm:text-[11px] font-bold text-slate-500">Total Visitors</div>
-              <div className="text-xl sm:text-2xl font-black text-emerald-700 mt-0.5">
-                {shiftSummary.totalPersons} <span className="text-xs font-semibold text-emerald-600">Persons</span>
+            <div className="bg-gradient-to-br from-emerald-50/40 to-teal-50/60 p-3.5 rounded-2xl border border-emerald-200/80 shadow-2xs">
+              <div className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Total Visitors</div>
+              <div className="text-2xl font-black text-emerald-800 mt-1 tracking-tight">
+                {shiftSummary.totalPersons} <span className="text-xs font-bold text-emerald-600">Persons</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-emerald-50/70 p-3 sm:p-3.5 rounded-xl sm:rounded-2xl border border-emerald-200 space-y-2">
+          <div className="bg-gradient-to-br from-emerald-50 via-teal-50/60 to-emerald-50/80 p-4 rounded-2xl border border-emerald-200/90 shadow-2xs space-y-2.5">
             <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-              <span>Collection with Pay Mode</span>
-              <span className="text-emerald-800 font-black text-sm sm:text-base">₹{shiftSummary.totalAmount.toFixed(2)}</span>
+              <span className="uppercase tracking-wider text-[11px] font-black text-emerald-900">Total Shift Revenue</span>
+              <span className="text-emerald-900 font-black text-lg tracking-tight">₹{shiftSummary.totalAmount.toFixed(2)}</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-emerald-200/60">
-              <div className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-xl border border-emerald-200 text-xs">
-                <span className="font-bold text-slate-600 flex items-center gap-1 text-[11px]">
+            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-emerald-200/70">
+              <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-emerald-200/80 text-xs shadow-2xs">
+                <span className="font-bold text-slate-600 flex items-center gap-1.5 text-[11px]">
                   <Banknote className="w-3.5 h-3.5 text-emerald-600" /> Cash:
                 </span>
                 <span className="font-black text-emerald-800">₹{shiftSummary.cashAmount.toFixed(0)}</span>
               </div>
 
-              <div className="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-xl border border-blue-200 text-xs">
-                <span className="font-bold text-slate-600 flex items-center gap-1 text-[11px]">
+              <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-blue-200/80 text-xs shadow-2xs">
+                <span className="font-bold text-slate-600 flex items-center gap-1.5 text-[11px]">
                   <QrCode className="w-3.5 h-3.5 text-blue-600" /> UPI:
                 </span>
                 <span className="font-black text-blue-800">₹{shiftSummary.upiAmount.toFixed(0)}</span>
@@ -417,43 +466,44 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
           </div>
         </div>
 
-        {/* Recent Tickets History */}
-        <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm space-y-3">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-600 uppercase tracking-wider">
-            <div className="flex items-center gap-1.5">
+        {/* Recent Tickets History Card */}
+        <div className="bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/60 rounded-3xl p-5 shadow-xl shadow-emerald-950/20 backdrop-blur-xl space-y-3.5">
+          <div className="flex items-center justify-between text-xs font-black text-slate-700 uppercase tracking-wider">
+            <div className="flex items-center gap-2">
               <span>Recent Counter Tickets</span>
               <button
                 type="button"
                 onClick={() => { refreshTickets(); refreshSummary(); }}
-                className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-emerald-700 transition cursor-pointer"
+                className="p-1 hover:bg-emerald-50 rounded-lg text-slate-400 hover:text-emerald-700 transition cursor-pointer"
                 title="Sync tickets with Supabase"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
             </div>
-            <span className="text-[11px] font-semibold text-slate-400">Re-Print</span>
+            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Re-Print</span>
           </div>
 
           <div className="space-y-2">
             {recentTickets.length === 0 ? (
-              <p className="text-xs text-slate-400 py-4 text-center">No recent tickets generated today.</p>
+              <p className="text-xs text-slate-400 py-6 text-center font-medium">No tickets issued yet today.</p>
             ) : (
               recentTickets.map(tk => (
                 <div
                   key={tk.id}
-                  className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs hover:border-slate-300 transition gap-2"
+                  className="flex items-center justify-between bg-white p-3 rounded-2xl border border-slate-200/90 text-xs hover:border-emerald-300 hover:shadow-xs transition gap-2 group"
                 >
                   <div className="min-w-0">
-                    <div className="font-mono font-bold text-emerald-800 whitespace-nowrap truncate">{tk.ticket_number}</div>
-                    <div className="text-[11px] text-slate-500 whitespace-nowrap truncate">
+                    <div className="font-mono font-black text-emerald-800 tracking-tight whitespace-nowrap truncate">{tk.ticket_number}</div>
+                    <div className="text-[11px] text-slate-500 font-semibold whitespace-nowrap truncate mt-0.5">
                       {tk.persons_count} Person(s) • ₹{(tk.price_paise / 100).toFixed(2)} ({tk.payment_method || 'CASH'})
                     </div>
                   </div>
+
                   <button
                     type="button"
                     onClick={() => handleReprint(tk)}
-                    className="p-2 text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 rounded-lg transition border border-slate-200 shadow-sm shrink-0 cursor-pointer"
-                    title="Re-Print Ticket"
+                    className="p-2 bg-slate-50 hover:bg-emerald-600 text-slate-600 hover:text-white rounded-xl border border-slate-200 hover:border-emerald-600 transition shadow-2xs cursor-pointer shrink-0"
+                    title={`Re-print Ticket ${tk.ticket_number}`}
                   >
                     <Printer className="w-3.5 h-3.5" />
                   </button>
@@ -466,7 +516,7 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
             <button
               type="button"
               onClick={() => setIsReportModalOpen(true)}
-              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white rounded-2xl text-xs font-black transition flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-black/20"
             >
               <FileText className="w-4 h-4" />
               <span>View Full Generate Report & Re-Print ({allTodayTickets.length})</span>
