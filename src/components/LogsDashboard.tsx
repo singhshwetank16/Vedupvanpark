@@ -373,8 +373,8 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
 
   // Date Filters (Indian Standard Time) - default to all records
   const todayYmd = getTodayIstYmd();
-  const startDate: string = '';
-  const endDate: string = '';
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
 
   useEffect(() => {
     loadData();
@@ -1251,6 +1251,65 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
     });
   };
 
+  const getReportDateRangeString = () => {
+    const formatIstDateDisplay = (dStr?: string) => {
+      if (!dStr) return '';
+      const m = dStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (m) {
+        return `${m[3]}/${m[2]}/${m[1]}`;
+      }
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(dStr)) return dStr;
+      try {
+        const d = new Date(dStr);
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric' });
+        }
+      } catch {
+        // fallback
+      }
+      return dStr;
+    };
+
+    if (startDate && endDate) {
+      return `FROM ${formatIstDateDisplay(startDate)} - TO ${formatIstDateDisplay(endDate)}`;
+    }
+    if (startDate && !endDate) {
+      return `FROM ${formatIstDateDisplay(startDate)} - TO ${formatIstDateDisplay(todayYmd)}`;
+    }
+    if (!startDate && endDate) {
+      return `UP TO ${formatIstDateDisplay(endDate)}`;
+    }
+
+    // When no date filter is applied, determine date range from current report records:
+    const dates: string[] = [];
+    if (selectedReport === 'daily-sales') {
+      dailySaleData.forEach(r => r.date && dates.push(r.date));
+    } else if (selectedReport === 'generate-tickets') {
+      generateTicketData.forEach(r => r.created_at && dates.push(getIstDateYmd(r.created_at)));
+    } else if (selectedReport === 'monthly-generate-pass') {
+      monthlyGeneratePassData.forEach(r => r.created_at && dates.push(getIstDateYmd(r.created_at)));
+    } else if (selectedReport === 'yearly-generate-pass') {
+      yearlyGeneratePassData.forEach(r => r.created_at && dates.push(getIstDateYmd(r.created_at)));
+    } else if (selectedReport === 'scan-tickets') {
+      scanTicketData.forEach(r => r.scanned_at && dates.push(getIstDateYmd(r.scanned_at)));
+    } else if (selectedReport === 'monthly-scan-pass') {
+      monthlyScanPassData.forEach(r => r.scanned_at && dates.push(getIstDateYmd(r.scanned_at)));
+    } else if (selectedReport === 'yearly-scan-pass') {
+      yearlyScanPassData.forEach(r => r.scanned_at && dates.push(getIstDateYmd(r.scanned_at)));
+    } else if (selectedReport === 'monthly-sales') {
+      monthlySaleData.forEach(r => r.monthKey && dates.push(`${r.monthKey}-01`));
+    }
+
+    if (dates.length > 0) {
+      dates.sort();
+      const minDate = dates[0];
+      const maxDate = dates[dates.length - 1];
+      return `FROM ${formatIstDateDisplay(minDate)} - TO ${formatIstDateDisplay(maxDate)}`;
+    }
+
+    return `FROM ${formatIstDateDisplay(todayYmd)} - TO ${formatIstDateDisplay(todayYmd)}`;
+  };
+
   const printReport = () => {
     const currentStaff = dbService.getCurrentStaff();
     dbService.logAuditEvent({
@@ -1389,12 +1448,31 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
       ]);
     }
 
+    const totalCols = headers.length || 1;
+    const makeHeaderRow = (text: string) => {
+      const cells = new Array(totalCols).fill('');
+      cells[0] = text;
+      return cells.map(escapeCsv).join(',');
+    };
+
+    const dateRangeStr = getReportDateRangeString();
+
+    const topHeaderRows = [
+      makeHeaderRow('VED UPVAN PARK'),
+      makeHeaderRow('(Nagar Palika Parishid)'),
+      makeHeaderRow('Etawah Road, Sirsaganj, Firozabad, U.P. - 205151'),
+      makeHeaderRow(dateRangeStr),
+      makeHeaderRow(`REPORT: ${reportTitles[selectedReport]?.title?.toUpperCase() || selectedReport.toUpperCase()}`),
+      new Array(totalCols).fill('').map(escapeCsv).join(','),
+    ];
+
     const csvContent = [
+      ...topHeaderRows,
       headers.map(escapeCsv).join(','),
       ...rows.map(row => row.map(escapeCsv).join(','))
     ].join('\r\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
@@ -1677,8 +1755,8 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
             </div>
           </div>
 
-          {/* Unified Action Bar */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
+          {/* Unified Action Bar with Date Filter */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
                 <h2 className="text-xl font-black text-slate-900">{reportTitles[selectedReport].title}</h2>
@@ -1706,10 +1784,70 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                 </button>
               </div>
             </div>
+
+            {/* Date Filter & Active Date Range Banner */}
+            <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                  <Calendar className="w-4 h-4 text-emerald-600" />
+                  <span>Date Filter:</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs">
+                    <span className="text-slate-500 font-bold">From:</span>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={e => setStartDate(e.target.value)}
+                      className="bg-transparent text-slate-800 font-semibold focus:outline-none cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs">
+                    <span className="text-slate-500 font-bold">To:</span>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={e => setEndDate(e.target.value)}
+                      className="bg-transparent text-slate-800 font-semibold focus:outline-none cursor-pointer"
+                    />
+                  </div>
+
+                  {(startDate || endDate) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStartDate('');
+                        setEndDate('');
+                      }}
+                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition cursor-pointer"
+                      title="Clear date filter to show all records"
+                    >
+                      Show All Records
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Current Active Date Range Display */}
+              <div className="text-xs font-bold px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl">
+                <span>{getReportDateRangeString()}</span>
+              </div>
+            </div>
           </div>
 
           {/* Report Data Display Container */}
           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm overflow-hidden">
+            {/* Centered Official Header Box */}
+            <div className="bg-slate-50 border-2 border-blue-600 rounded-xl p-4 text-center mb-6">
+              <h3 className="text-xl font-black text-slate-900 tracking-wide uppercase">VED UPVAN PARK</h3>
+              <h4 className="text-sm font-bold text-slate-800 mt-1">(Nagar Palika Parishid)</h4>
+              <p className="text-xs text-slate-600 mt-0.5">Etawah Road, Sirsaganj, Firozabad, U.P. - 205151</p>
+              <div className="mt-2.5 inline-block px-4 py-1 bg-white border border-emerald-300 text-emerald-800 text-xs font-bold rounded-lg shadow-xs tracking-wider">
+                {getReportDateRangeString()}
+              </div>
+            </div>
             {/* 1. DAILY SALE REPORT TABLE */}
             {selectedReport === 'daily-sales' && (
               <div className="overflow-x-auto">
@@ -3933,32 +4071,33 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
          Visible ONLY during report printing / PDF export
          ========================================================================= */}
       <div id="print-report-root">
-        {/* Official Header */}
-        <div style={{ textAlign: 'center', borderBottom: '2px solid #000', paddingBottom: '10px', marginBottom: '16px' }}>
-          <h1 style={{ fontSize: '20px', fontWeight: '900', margin: 0, textTransform: 'uppercase' }}>
-            {config.park_settings.park_name}
-          </h1>
-          <h2 style={{ fontSize: '14px', fontWeight: 'bold', margin: '2px 0', color: '#15803d' }}>
-            {config.park_settings.organization_name}
-          </h2>
-          <p style={{ fontSize: '11px', margin: 0, color: '#4b5563' }}>
-            {config.park_settings.address}
-          </p>
-          <div style={{ display: 'inline-block', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', padding: '4px 12px', borderRadius: '6px', fontWeight: 'bold', fontSize: '13px', marginTop: '8px' }}>
-            {reportTitles[selectedReport].title.toUpperCase()}
+        {/* Official Centered Header matching User Specification */}
+        <div style={{ textAlign: 'center', border: '2px solid #2563eb', borderRadius: '4px', marginBottom: '14px', backgroundColor: '#ffffff', overflow: 'hidden' }}>
+          <div style={{ padding: '8px 12px', borderBottom: '1.5px solid #60a5fa', backgroundColor: '#eff6ff' }}>
+            <h1 style={{ fontSize: '22px', fontWeight: '900', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#000000' }}>
+              VED UPVAN PARK
+            </h1>
+          </div>
+          <div style={{ padding: '5px 12px', borderBottom: '1.5px solid #60a5fa', backgroundColor: '#ffffff' }}>
+            <h2 style={{ fontSize: '15px', fontWeight: 'bold', margin: 0, color: '#000000' }}>
+              (Nagar Palika Parishid)
+            </h2>
+          </div>
+          <div style={{ padding: '5px 12px', borderBottom: '1.5px solid #60a5fa', fontSize: '12px', color: '#1e293b', backgroundColor: '#ffffff' }}>
+            Etawah Road, Sirsaganj, Firozabad, U.P. - 205151
+          </div>
+          <div style={{ padding: '6px 12px', backgroundColor: '#f0fdf4', fontSize: '13px', fontWeight: 'bold', color: '#15803d', letterSpacing: '0.04em' }}>
+            {getReportDateRangeString()}
           </div>
         </div>
 
-        {/* Metadata Strip */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px', marginBottom: '12px', color: '#334155' }}>
-          <div>
-            <strong>Report Period:</strong> {startDate || 'Start'} to {endDate || 'Present'}
+        {/* Report Title & Metadata Strip */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', borderBottom: '1.5px solid #000', paddingBottom: '6px', marginBottom: '14px', color: '#1e293b' }}>
+          <div style={{ fontSize: '14px', fontWeight: '900', textTransform: 'uppercase', color: '#0f172a' }}>
+            {reportTitles[selectedReport].title}
           </div>
-          <div>
-            <strong>Generated:</strong> {new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} (IST)
-          </div>
-          <div>
-            <strong>Generated By:</strong> {config.operator_name || 'Admin'}
+          <div style={{ fontSize: '11px', color: '#475569' }}>
+            <strong>Generated:</strong> {new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} (IST) &nbsp;|&nbsp; <strong>Operator:</strong> {config.operator_name || 'Admin'}
           </div>
         </div>
 
