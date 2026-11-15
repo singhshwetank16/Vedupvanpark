@@ -379,54 +379,62 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
       {/* Right Column: Live Shift Report & Recent Tickets */}
       <div className="lg:col-span-4 flex flex-col justify-between space-y-3">
         {/* Live Counter Report Card */}
-        <div className="bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/60 rounded-2xl p-3.5 shadow-md shadow-emerald-950/10 backdrop-blur-xl space-y-2.5 shrink-0">
+        <div className="bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/60 rounded-2xl p-3.5 sm:p-4 shadow-md shadow-emerald-950/10 backdrop-blur-xl space-y-3 shrink-0">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <h3 className="font-black text-slate-900 text-xs uppercase tracking-wider">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shadow-xs" />
+              <h3 className="font-black text-slate-900 text-xs sm:text-sm uppercase tracking-wider">
                 Today's Counter Report
               </h3>
             </div>
-            <span className="text-[9px] bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black px-2 py-0.5 rounded-full shadow-2xs">
+            <span className="text-[10px] bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black px-2.5 py-0.5 rounded-full shadow-2xs tracking-wider">
               LIVE SHIFT
             </span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div className="bg-white p-2 rounded-xl border border-slate-200/80 shadow-2xs">
-              <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tickets Issued</div>
-              <div className="text-xl font-black text-slate-900 mt-0.5 tracking-tight">
-                {shiftSummary.totalTickets} <span className="text-xs font-bold text-slate-400">Tkts</span>
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="bg-white p-2.5 rounded-xl border border-slate-200/90 shadow-2xs">
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tickets Issued</div>
+              <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-0.5 tracking-tight flex items-baseline gap-1">
+                <span>{shiftSummary.totalTickets}</span>
+                <span className="text-xs font-bold text-slate-400">Tkts</span>
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-emerald-50/40 to-teal-50/60 p-2 rounded-xl border border-emerald-200/80 shadow-2xs">
-              <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Total Visitors</div>
-              <div className="text-xl font-black text-emerald-800 mt-0.5 tracking-tight">
-                {shiftSummary.totalPersons} <span className="text-xs font-bold text-emerald-600">Persons</span>
+            <div className="bg-gradient-to-br from-emerald-50/60 to-teal-50/70 p-2.5 rounded-xl border border-emerald-200/90 shadow-2xs">
+              <div className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">Total Visitors</div>
+              <div className="text-2xl sm:text-3xl font-black text-emerald-800 mt-0.5 tracking-tight flex items-baseline gap-1">
+                <span>{shiftSummary.totalPersons}</span>
+                <span className="text-xs font-bold text-emerald-600">Persons</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200/90 shadow-2xs space-y-1.5">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-              <span className="uppercase tracking-wider text-[10px] font-black text-emerald-900">Total Shift Revenue</span>
-              <span className="text-emerald-900 font-black text-base tracking-tight">₹{shiftSummary.totalAmount.toFixed(2)}</span>
+          <div className="bg-gradient-to-r from-emerald-50/80 via-teal-50/50 to-emerald-50/80 p-3 rounded-xl border border-emerald-200/90 shadow-2xs space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="uppercase tracking-wider text-[11px] font-black text-emerald-950">Total Shift Revenue</span>
+              <span className="text-emerald-950 font-black text-lg sm:text-xl tracking-tight">₹{shiftSummary.totalAmount.toFixed(2)}</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-1.5 pt-1 border-t border-emerald-200/70">
-              <div className="flex items-center justify-between bg-white px-2 py-1 rounded-lg border border-emerald-200/80 text-xs shadow-2xs">
-                <span className="font-bold text-slate-600 flex items-center gap-1 text-[10px]">
-                  <Banknote className="w-3 h-3 text-emerald-600" /> Cash:
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-emerald-200/80">
+              <div className="bg-white p-2 sm:p-2.5 rounded-xl border border-emerald-300/80 shadow-2xs flex items-center justify-between gap-1.5">
+                <span className="font-extrabold text-slate-700 flex items-center gap-1.5 text-xs">
+                  <Banknote className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Cash:</span>
                 </span>
-                <span className="font-black text-emerald-800 text-[11px]">₹{shiftSummary.cashAmount.toFixed(0)}</span>
+                <span className="font-black text-emerald-900 text-sm sm:text-base tracking-tight">
+                  ₹{shiftSummary.cashAmount.toFixed(0)}
+                </span>
               </div>
 
-              <div className="flex items-center justify-between bg-white px-2 py-1 rounded-lg border border-blue-200/80 text-xs shadow-2xs">
-                <span className="font-bold text-slate-600 flex items-center gap-1 text-[10px]">
-                  <QrCode className="w-3 h-3 text-blue-600" /> UPI:
+              <div className="bg-white p-2 sm:p-2.5 rounded-xl border border-blue-300/80 shadow-2xs flex items-center justify-between gap-1.5">
+                <span className="font-extrabold text-slate-700 flex items-center gap-1.5 text-xs">
+                  <QrCode className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>UPI:</span>
                 </span>
-                <span className="font-black text-blue-800 text-[11px]">₹{shiftSummary.upiAmount.toFixed(0)}</span>
+                <span className="font-black text-blue-900 text-sm sm:text-base tracking-tight">
+                  ₹{shiftSummary.upiAmount.toFixed(0)}
+                </span>
               </div>
             </div>
           </div>

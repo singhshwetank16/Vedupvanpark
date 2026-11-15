@@ -129,7 +129,7 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
   };
 
   return (
-    <div className="max-w-[1440px] xl:max-w-[1560px] mx-auto w-full p-2 sm:p-4 space-y-4">
+    <div className="max-w-[1440px] xl:max-w-[1560px] mx-auto w-full px-2 sm:px-4 py-1 space-y-3">
       {/* Compact Title Header with Logo & Mode Switcher */}
       <div className="bg-gradient-to-br from-white via-white to-emerald-50/50 border border-white/70 rounded-2xl px-4 py-2.5 sm:py-3 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-2.5 shrink-0">
         <div className="flex items-center gap-3">
@@ -333,21 +333,21 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
             </div>
 
             {/* Total and Submit Hero Bar (Anchored at Bottom) */}
-            <div className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-700 p-3 sm:p-3.5 rounded-2xl shadow-lg border border-emerald-600/50 flex items-center justify-between gap-3 text-white mt-2">
+            <div className="bg-gradient-to-r from-emerald-800 via-emerald-700 to-teal-700 p-3.5 sm:p-4 rounded-2xl shadow-lg border border-emerald-600/50 flex items-center justify-between gap-3 text-white mt-2">
               <div>
                 <div className="text-[10px] uppercase tracking-wider text-emerald-200 font-extrabold">Total Fee</div>
-                <div className="text-xl sm:text-2xl font-black tracking-tight text-white leading-tight">
+                <div className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
                   ₹{totalAmountInr.toFixed(2)}
                 </div>
-                <div className="text-[10px] text-emerald-100 font-medium">
-                  {passType === 'MONTHLY' ? `${validityDays} Days` : '365 Days'} • 1 Person Allowed
+                <div className="text-[11px] text-emerald-100 font-semibold">
+                  {passType === 'MONTHLY' ? `${validityDays} Days` : '365 Days'} • 1 Person Regular Entry
                 </div>
               </div>
 
               <button
                 type="submit"
                 disabled={isGenerating}
-                className="px-6 py-2.5 bg-white hover:bg-emerald-50 active:scale-95 text-emerald-950 font-black rounded-xl shadow-lg shadow-black/20 flex items-center justify-center gap-1.5 text-xs sm:text-sm disabled:opacity-50 transition cursor-pointer"
+                className="px-6 py-3 bg-white hover:bg-emerald-50 active:scale-95 text-emerald-950 font-black rounded-xl shadow-lg shadow-black/20 flex items-center justify-center gap-1.5 text-xs sm:text-sm disabled:opacity-50 transition cursor-pointer"
               >
                 <Printer className="w-4 h-4 text-emerald-700" />
                 <span>{isGenerating ? 'Generating...' : 'Issue & Print Pass'}</span>
@@ -403,11 +403,11 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                   </div>
 
                   <div className="flex justify-between items-baseline">
-                    <span className="font-black text-slate-900 text-xs flex items-center gap-1 truncate max-w-[170px]">
-                      <UserCheck className="w-3 h-3 text-emerald-600 shrink-0" />
+                    <span className="font-black text-slate-900 text-xs sm:text-sm flex items-center gap-1.5 truncate max-w-[190px]">
+                      <UserCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span className="truncate">{pass.holder_name}</span>
                     </span>
-                    <span className="text-xs text-emerald-700 font-black">
+                    <span className="text-sm font-black text-emerald-800">
                       ₹{((pass.amount_paise || 0) / 100).toFixed(2)}
                     </span>
                   </div>
