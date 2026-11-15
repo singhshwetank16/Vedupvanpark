@@ -340,7 +340,7 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                   ₹{totalAmountInr.toFixed(2)}
                 </div>
                 <div className="text-[11px] text-emerald-100 font-semibold">
-                  {passType === 'MONTHLY' ? `${validityDays} Days` : '365 Days'} • 1 Person Regular Entry
+                  Pass Validity: {passType === 'MONTHLY' ? `${validityDays} Days (${validityDays === 30 ? '1 Month' : validityDays === 60 ? '2 Months' : '3 Months'})` : '365 Days (1 Year Regular Entry)'}
                 </div>
               </div>
 

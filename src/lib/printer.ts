@@ -118,7 +118,12 @@ export class ThermalPrinterService {
     }
 
     commands.push(...encoder.encode('------------------------------------------------\n'));
-    commands.push(...encoder.encode(`PERSONS   : ${persons} Person(s) Allowed\n`));
+    if (isTicket) {
+      commands.push(...encoder.encode(`PERSONS   : ${persons} Person(s) Allowed\n`));
+    } else {
+      const validityText = doc.pass_type === 'YEARLY' ? `365 Days (Till ${doc.valid_through})` : (doc.plan_name ? `${doc.plan_name} (Till ${doc.valid_through})` : `Till ${doc.valid_through}`);
+      commands.push(...encoder.encode(`PASS VALIDITY: ${validityText}\n`));
+    }
     commands.push(...encoder.encode(`AMOUNT    : Rs. ${amountInr} (PAID)\n`));
     commands.push(...encoder.encode('------------------------------------------------\n'));
 

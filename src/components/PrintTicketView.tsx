@@ -97,17 +97,31 @@ export const PrintTicketView: React.FC<PrintTicketViewProps> = ({ document: doc,
 
         <div className="border-t-2 border-black my-1.5"></div>
 
-        {/* Persons Count & Pricing Highlights */}
+        {/* Persons Count or Pass Validity Highlights */}
         <div className="text-left text-black py-1">
-          <div className="flex justify-between items-center">
-            <span className="text-[14px] font-black uppercase tracking-wide">PERSONS ALLOWED:</span>
-            <div className="flex flex-col items-center justify-center border-2 border-black px-3 py-1 rounded bg-white min-w-[75px] text-center">
-              <span className="text-[22px] font-black leading-none">{personsCount}</span>
-              <span className="text-[11px] font-black tracking-wider leading-none mt-1 uppercase">
-                {personsCount > 1 ? 'PERSONS' : 'PERSON'}
-              </span>
+          {isTicket ? (
+            <div className="flex justify-between items-center">
+              <span className="text-[14px] font-black uppercase tracking-wide">PERSONS ALLOWED:</span>
+              <div className="flex flex-col items-center justify-center border-2 border-black px-3 py-1 rounded bg-white min-w-[75px] text-center">
+                <span className="text-[22px] font-black leading-none">{personsCount}</span>
+                <span className="text-[11px] font-black tracking-wider leading-none mt-1 uppercase">
+                  {personsCount > 1 ? 'PERSONS' : 'PERSON'}
+                </span>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex justify-between items-center">
+              <span className="text-[14px] font-black uppercase tracking-wide">PASS VALIDITY:</span>
+              <div className="flex flex-col items-center justify-center border-2 border-black px-3 py-1 rounded bg-white min-w-[125px] text-center">
+                <span className="text-[15px] font-black leading-none uppercase">
+                  {doc.pass_type === 'YEARLY' ? '365 DAYS (1 YEAR)' : doc.plan_name ? doc.plan_name.toUpperCase() : 'SUBSCRIPTION PASS'}
+                </span>
+                <span className="text-[10px] font-black tracking-wider leading-none mt-1 uppercase">
+                  TILL {doc.valid_through}
+                </span>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-between items-center border-t-2 border-black pt-1.5 mt-2">
             <span className="text-[14px] font-black uppercase tracking-wide">TOTAL AMOUNT:</span>
