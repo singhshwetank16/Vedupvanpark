@@ -147,7 +147,7 @@ export class ThermalPrinterService {
     if (isTicket) {
       commands.push(...encoder.encode('* TICKET EXPIRES IMMEDIATELY UPON GATE SCAN *\n'));
     } else {
-      commands.push(...encoder.encode('* PASS VALID FOR DAILY ENTRY WITH COOLDOWN *\n'));
+      commands.push(...encoder.encode(`* REGULAR ENTRY PASS - VALID TILL ${doc.valid_through} *\n`));
     }
     commands.push(...encoder.encode('Please keep this slip safe until exit.\n'));
     commands.push(...encoder.encode('================================================\n'));

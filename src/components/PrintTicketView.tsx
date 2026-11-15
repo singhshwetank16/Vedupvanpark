@@ -161,8 +161,8 @@ export const PrintTicketView: React.FC<PrintTicketViewProps> = ({ document: doc,
             </>
           ) : (
             <>
-              <p>• PASS VALID FOR REGULAR ENTRY WITH 60-MIN COOLDOWN •</p>
-              <p>• Valid until {doc.valid_through} • Non-Transferable •</p>
+              <p>• Regular Visitor Pass • Non-Transferable •</p>
+              <p>• Valid Until: {doc.valid_through} •</p>
             </>
           )}
           <p className="mt-0.5">Please keep this slip safe until exit.</p>
