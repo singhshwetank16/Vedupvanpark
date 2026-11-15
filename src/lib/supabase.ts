@@ -78,7 +78,7 @@ export const DEFAULT_PLANS: Plan[] = [
     duration_days: 30,
     max_people: 1,
     max_visits_per_day: 2,
-    cooldown_minutes: 60,
+    cooldown_minutes: 10,
     allow_same_day_reentry: true,
     named_members_required: true,
     active: true,
@@ -92,7 +92,7 @@ export const DEFAULT_PLANS: Plan[] = [
     duration_days: 365,
     max_people: 1,
     max_visits_per_day: 2,
-    cooldown_minutes: 60,
+    cooldown_minutes: 10,
     allow_same_day_reentry: true,
     named_members_required: true,
     active: true,
@@ -1732,12 +1732,12 @@ class VupDatabaseService {
         };
       }
 
-      // Check cooldown (prevent immediate double tap within 60 minutes)
+      // Check cooldown (allow scan every 10 minutes)
       const lastLogs = this.getLocalEntryEvents().filter(e => e.pass_id === pass.id && e.result === 'SUCCESS');
       if (lastLogs.length > 0) {
         const lastScanTime = new Date(lastLogs[0].scanned_at).getTime();
         const diffMinutes = (now.getTime() - lastScanTime) / (1000 * 60);
-        if (diffMinutes < 60) {
+        if (diffMinutes < 10) {
           this.logAuditEvent({
             action: 'GATE_PASS_DENIED_COOLDOWN',
             entity_type: 'GATE',
