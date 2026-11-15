@@ -16,7 +16,6 @@ import {
   Lock,
   QrCode,
   Clock,
-  Sparkles,
   Phone,
   Search,
   Smartphone
@@ -445,9 +444,8 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
               <span>Gate Scanner • {config.gate_code}</span>
             </div>
-            <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-1.5">
-              <span>{config.park_settings.park_name}</span>
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+              {config.park_settings.park_name}
             </h1>
             <p className="text-[11px] text-slate-500 font-medium">{config.park_settings.organization_name}</p>
           </div>
