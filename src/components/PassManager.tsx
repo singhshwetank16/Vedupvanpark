@@ -486,8 +486,7 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                     </div>
                     <p className="text-[11px] text-amber-800 leading-snug">
                       Holder: <strong>{existingActivePass.holder_name}</strong> • Valid Through:{' '}
-                      <strong className="text-red-700 font-mono font-black">{existingActivePass.valid_through}</strong>.
-                      Jab tak is pass ki validity khatam nahi hoti, tab tak naya pass generate nahi ho sakta.
+                      <strong className="text-red-700 font-mono font-black">{existingActivePass.valid_through}</strong>
                     </p>
                     <div className="pt-0.5 flex items-center gap-2">
                       <button
