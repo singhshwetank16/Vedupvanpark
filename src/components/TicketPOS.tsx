@@ -305,31 +305,31 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
                 <span className="text-[10px] text-slate-400 font-medium">Cash or Instant UPI</span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => setPaymentMode('CASH')}
-                  className={`py-2 px-3 rounded-xl font-black flex items-center justify-center gap-2 transition-all duration-150 cursor-pointer ${
+                  className={`py-3.5 sm:py-4 px-4 rounded-2xl font-black flex items-center justify-center gap-2.5 transition-all duration-150 cursor-pointer ${
                     paymentMode === 'CASH'
-                      ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 text-white shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400'
-                      : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 shadow-2xs'
+                      ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 text-white shadow-lg shadow-emerald-600/35 ring-2 ring-emerald-400 scale-[1.01]'
+                      : 'bg-white hover:bg-slate-50 border-2 border-slate-200 hover:border-slate-300 text-slate-700 shadow-xs'
                   }`}
                 >
-                  <Banknote className="w-4 h-4" />
-                  <span className="text-xs sm:text-sm">1. Cash Payment</span>
+                  <Banknote className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
+                  <span className="text-sm sm:text-base font-black tracking-tight">1. Cash Payment</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setPaymentMode('UPI')}
-                  className={`py-2 px-3 rounded-xl font-black flex items-center justify-center gap-2 transition-all duration-150 cursor-pointer ${
+                  className={`py-3.5 sm:py-4 px-4 rounded-2xl font-black flex items-center justify-center gap-2.5 transition-all duration-150 cursor-pointer ${
                     paymentMode === 'UPI'
-                      ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 text-white shadow-md shadow-blue-600/30 ring-2 ring-blue-400'
-                      : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 shadow-2xs'
+                      ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 text-white shadow-lg shadow-blue-600/35 ring-2 ring-blue-400 scale-[1.01]'
+                      : 'bg-white hover:bg-slate-50 border-2 border-slate-200 hover:border-slate-300 text-slate-700 shadow-xs'
                   }`}
                 >
-                  <QrCode className="w-4 h-4" />
-                  <span className="text-xs sm:text-sm">2. Digital UPI</span>
+                  <QrCode className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
+                  <span className="text-sm sm:text-base font-black tracking-tight">2. Digital UPI</span>
                 </button>
               </div>
             </div>

@@ -303,29 +303,29 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                   <span>Payment Mode</span>
                 </label>
 
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setPaymentMode('CASH')}
-                    className={`py-2 px-3 rounded-xl font-black text-xs sm:text-sm border flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    className={`py-3 sm:py-3.5 px-4 rounded-2xl font-black text-xs sm:text-sm border-2 flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
                       paymentMode === 'CASH'
-                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-600 shadow-md shadow-emerald-600/25 ring-1 ring-emerald-400'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-emerald-500 shadow-md shadow-emerald-600/30 ring-2 ring-emerald-400 scale-[1.01]'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs'
                     }`}
                   >
-                    <Banknote className="w-4 h-4" />
+                    <Banknote className="w-5 h-5 shrink-0" />
                     <span>1. Cash</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentMode('UPI')}
-                    className={`py-2 px-3 rounded-xl font-black text-xs sm:text-sm border flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    className={`py-3 sm:py-3.5 px-4 rounded-2xl font-black text-xs sm:text-sm border-2 flex items-center justify-center gap-2.5 transition-all cursor-pointer ${
                       paymentMode === 'UPI'
-                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-600 shadow-md shadow-blue-600/25 ring-1 ring-blue-400'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-blue-500 shadow-md shadow-blue-600/30 ring-2 ring-blue-400 scale-[1.01]'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs'
                     }`}
                   >
-                    <QrCode className="w-4 h-4" />
+                    <QrCode className="w-5 h-5 shrink-0" />
                     <span>2. UPI</span>
                   </button>
                 </div>
