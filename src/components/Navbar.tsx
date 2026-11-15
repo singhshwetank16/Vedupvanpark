@@ -1,7 +1,6 @@
 import React from 'react';
 import type { AppConfig, AuthStaff } from '../types';
 import { Ticket, CreditCard, Camera, BarChart3, LogOut } from 'lucide-react';
-import { InstallAppBanner } from './InstallAppBanner';
 import { LOGO_URL } from '../assets/logo';
 
 interface NavbarProps {
@@ -120,9 +119,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* User Profile & Actions */}
         <div className="flex items-center gap-2.5">
-          {/* Install App Button */}
-          <InstallAppBanner variant="compact" />
-
           {/* Active Staff Badge */}
           {staff && (
             <div className="hidden md:flex items-center gap-2.5 bg-gradient-to-r from-slate-50 to-slate-100/90 px-3.5 py-1.5 rounded-2xl border border-slate-200/80 shadow-2xs">

@@ -3,7 +3,6 @@ import type { AuthStaff, AppConfig } from '../types';
 import { dbService } from '../lib/supabase';
 import { NatureBackground } from './NatureBackground';
 import { Lock, User, Eye, EyeOff, Loader2, ArrowRight, AlertCircle, ShieldCheck } from 'lucide-react';
-import { InstallAppBanner } from './InstallAppBanner';
 import { LOGO_URL } from '../assets/logo';
 
 interface LoginViewProps {
@@ -159,9 +158,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             </div>
           </form>
         </div>
-
-        {/* Install Mobile / Desktop App Banner */}
-        <InstallAppBanner variant="card" className="w-full mt-3" />
 
         {/* Footer info */}
         <p className="mt-3 text-center text-[11px] sm:text-xs text-emerald-100/80 font-medium drop-shadow flex items-center justify-center gap-1.5">
