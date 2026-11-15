@@ -419,11 +419,11 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
           </form>
         </div>
 
-        {/* Right Sidebar: Active Passes List (Strictly fixed height with internal scroller only) */}
-        <div className="lg:col-span-5 bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/70 rounded-2xl p-4 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex flex-col justify-between space-y-2.5 shrink-0">
-          <div className="flex items-center justify-between border-b border-emerald-950/10 pb-2 shrink-0">
-            <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+        {/* Right Sidebar: Active Passes List */}
+        <div className="lg:col-span-5 bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/70 rounded-2xl p-4 sm:p-5 shadow-lg shadow-emerald-950/15 backdrop-blur-xl flex flex-col h-full space-y-3">
+          <div className="flex items-center justify-between border-b border-emerald-950/10 pb-2.5 shrink-0">
+            <h3 className="text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
               <span>Active Passes Issued</span>
               <button
                 type="button"
@@ -431,55 +431,55 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                 className="p-1 hover:bg-emerald-50 rounded-lg text-slate-400 hover:text-emerald-700 transition cursor-pointer"
                 title="Refresh passes list"
               >
-                <RefreshCw className="w-3 h-3" />
+                <RefreshCw className="w-3.5 h-3.5" />
               </button>
             </h3>
-            <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200/70">
               {filteredPasses.length} {searchQuery ? 'Found' : 'Total'}
             </span>
           </div>
 
           {/* Search by Mobile Number / Name Filter */}
           <div className="relative shrink-0">
-            <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
-              <Search className="w-3.5 h-3.5 text-emerald-600" />
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+              <Search className="w-4 h-4 text-emerald-600" />
             </div>
             <input
               type="text"
               placeholder="Search by Mobile # (e.g. 98...) or Name to Re-Print..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-8 py-1.5 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition shadow-inner font-mono"
+              className="w-full pl-9 pr-9 py-2 bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-emerald-500 rounded-xl text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition shadow-inner font-mono"
             />
             {isSearching ? (
-              <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-emerald-600 pointer-events-none">
-                <RefreshCw className="w-3 h-3 animate-spin" />
+              <div className="absolute inset-y-0 right-0 pr-3 flex items-center text-emerald-600 pointer-events-none">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
               </div>
             ) : searchQuery ? (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-700 cursor-pointer"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-700 cursor-pointer"
                 title="Clear search"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             ) : null}
           </div>
 
-          {/* Strictly Fixed-Height Scrollable Box: Only this inner box scrolls, page never expands */}
-          <div className="space-y-2 overflow-y-auto custom-scrollbar h-[225px] sm:h-[235px] pr-1.5 shrink-0">
+          {/* Dynamic Height Scrollable Box: Seamlessly fills remaining height with zero gap */}
+          <div className="flex-1 min-h-[280px] max-h-[460px] overflow-y-auto custom-scrollbar space-y-2 pr-1">
             {filteredPasses.length === 0 ? (
-              <div className="py-8 text-center space-y-1.5">
-                <div className="w-10 h-10 rounded-xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto border border-slate-200">
-                  <Phone className="w-5 h-5 opacity-60" />
+              <div className="h-full min-h-[220px] flex flex-col items-center justify-center py-8 text-center space-y-2">
+                <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center border border-slate-200 shadow-2xs">
+                  <Phone className="w-6 h-6 opacity-60" />
                 </div>
-                <p className="text-xs text-slate-700 font-bold">
-                  {searchQuery ? `No pass found for "${searchQuery}"` : 'No subscription passes issued yet today.'}
+                <p className="text-xs text-slate-700 font-bold max-w-xs">
+                  {searchQuery ? `No pass found matching "${searchQuery}"` : 'No subscription passes issued yet today.'}
                 </p>
                 {searchQuery && (
-                  <p className="text-[11px] text-slate-400">
-                    Check the 10-digit mobile number or name spelling.
+                  <p className="text-[11px] text-slate-400 max-w-xs">
+                    Please check the 10-digit mobile number or name spelling.
                   </p>
                 )}
               </div>
@@ -487,7 +487,7 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
               filteredPasses.map(pass => (
                 <div
                   key={pass.id}
-                  className="bg-white p-2.5 rounded-xl border border-slate-200/90 hover:border-emerald-300 transition space-y-1.5 group"
+                  className="bg-white hover:bg-emerald-50/20 p-3 rounded-xl border border-slate-200/90 hover:border-emerald-400 transition-all duration-150 space-y-2 group shadow-2xs hover:shadow-xs"
                 >
                   <div className="flex items-center justify-between">
                     {(() => {
@@ -507,40 +507,40 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                         badgeStyle = 'bg-blue-100 text-blue-800 border-blue-200';
                       }
                       return (
-                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${badgeStyle}`}>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${badgeStyle}`}>
                           {badgeLabel}
                         </span>
                       );
                     })()}
-                    <span className="font-mono text-[11px] font-black text-slate-700">{pass.pass_number}</span>
+                    <span className="font-mono text-xs font-black text-slate-700">{pass.pass_number}</span>
                   </div>
 
-                  <div className="flex justify-between items-baseline">
-                    <div className="min-w-0 flex-1 pr-2">
-                      <span className="font-black text-slate-900 text-xs sm:text-sm flex items-center gap-1.5 truncate">
-                        <UserCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <div className="flex justify-between items-baseline gap-2">
+                    <div className="min-w-0 flex-1">
+                      <span className="font-black text-slate-900 text-sm flex items-center gap-1.5 truncate">
+                        <UserCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                         <span className="truncate">{pass.holder_name}</span>
                       </span>
                       {pass.holder_phone && (
-                        <div className="text-[10px] text-slate-600 font-mono font-bold flex items-center gap-1 mt-0.5">
-                          <Phone className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                        <div className="text-[11px] text-slate-600 font-mono font-bold flex items-center gap-1.5 mt-1 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-200/70 w-fit">
+                          <Phone className="w-3 h-3 text-emerald-600 shrink-0" />
                           <span>{pass.holder_phone}</span>
                         </div>
                       )}
                     </div>
-                    <span className="text-sm font-black text-emerald-800 shrink-0">
+                    <span className="text-base font-black text-emerald-800 shrink-0">
                       ₹{((pass.amount_paise || 0) / 100).toFixed(2)}
                     </span>
                   </div>
 
-                  <div className="text-[10px] text-slate-500 font-medium flex justify-between items-center pt-0.5 border-t border-slate-100">
-                    <span>Valid: {pass.valid_through}</span>
+                  <div className="text-[11px] text-slate-500 font-medium flex justify-between items-center pt-1.5 border-t border-slate-100">
+                    <span className="font-medium text-slate-600">Valid: <strong className="font-mono font-bold text-slate-800">{pass.valid_through}</strong></span>
                     <button
                       type="button"
                       onClick={() => handleReprint(pass)}
-                      className="px-2 py-0.5 bg-slate-100 hover:bg-emerald-600 hover:text-white rounded text-[10px] font-black flex items-center gap-1 transition cursor-pointer"
+                      className="px-2.5 py-1 bg-slate-100 hover:bg-emerald-600 hover:text-white text-slate-700 rounded-lg text-[11px] font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
                     >
-                      <Printer className="w-2.5 h-2.5" /> Re-Print
+                      <Printer className="w-3 h-3" /> Re-Print
                     </button>
                   </div>
                 </div>

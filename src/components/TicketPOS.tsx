@@ -136,7 +136,7 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
   return (
     <div className="max-w-[1440px] xl:max-w-[1560px] mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 lg:gap-5 items-stretch">
       {/* Left Column: POS Generation */}
-      <div className="lg:col-span-8 flex flex-col justify-between space-y-3">
+      <div className="lg:col-span-8 flex flex-col h-full space-y-3">
         {/* Compact Header Banner with Official Logo */}
         <div className="bg-gradient-to-br from-white via-white to-emerald-50/50 border border-white/60 rounded-2xl px-4 py-2.5 sm:py-3 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex flex-col sm:flex-row items-center justify-between gap-2.5 relative overflow-hidden group shrink-0">
           <div className="flex items-center gap-3 text-center sm:text-left relative z-10">
@@ -377,7 +377,7 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
       </div>
 
       {/* Right Column: Live Shift Report & Recent Tickets */}
-      <div className="lg:col-span-4 flex flex-col justify-between space-y-3">
+      <div className="lg:col-span-4 flex flex-col h-full space-y-3 sm:space-y-4">
         {/* Live Counter Report Card */}
         <div className="bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/60 rounded-2xl p-3.5 sm:p-4 shadow-md shadow-emerald-950/10 backdrop-blur-xl space-y-3 shrink-0">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -440,8 +440,8 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
           </div>
         </div>
 
-        {/* Recent Tickets History Card (Strictly fixed height with internal scroller only - page never expands) */}
-        <div className="bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/60 rounded-2xl p-3.5 sm:p-4 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex flex-col justify-between space-y-2.5 shrink-0">
+        {/* Recent Tickets History Card */}
+        <div className="bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/60 rounded-2xl p-3.5 sm:p-4 shadow-md shadow-emerald-950/10 backdrop-blur-xl flex-1 min-h-0 flex flex-col space-y-2.5">
           <div className="flex items-center justify-between text-xs font-black text-slate-700 uppercase tracking-wider border-b border-slate-100 pb-2 shrink-0">
             <div className="flex items-center gap-1.5">
               <span>Recent Tickets</span>
@@ -460,8 +460,8 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
             <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Re-Print</span>
           </div>
 
-          {/* Fixed-Height Scroller: strictly 205px. When >4 tickets exist, ONLY this box scrolls */}
-          <div className="space-y-2 h-[195px] sm:h-[205px] overflow-y-auto custom-scrollbar pr-1.5 shrink-0">
+          {/* Dynamic-Height Scroller: fills remaining card height seamlessly */}
+          <div className="space-y-2 flex-1 min-h-[175px] max-h-[300px] overflow-y-auto custom-scrollbar pr-1.5">
             {recentTickets.length === 0 ? (
               <p className="text-xs text-slate-400 py-6 text-center font-medium">No tickets issued yet today.</p>
             ) : (
@@ -503,7 +503,7 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
           <button
             type="button"
             onClick={() => setIsReportModalOpen(true)}
-            className="w-full py-2 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shrink-0"
+            className="w-full py-2.5 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-emerald-700 hover:to-teal-700 active:scale-95 text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm shrink-0"
           >
             <FileText className="w-3.5 h-3.5" />
             <span>Full Report & Re-Print ({allTodayTickets.length})</span>
