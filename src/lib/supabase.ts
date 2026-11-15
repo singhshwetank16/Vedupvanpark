@@ -1323,6 +1323,12 @@ class VupDatabaseService {
       };
     }
 
+    // 0. Auto-detect 10-digit mobile number input (e.g. guard typed 10 digits into scanner or barcode gun)
+    const phoneDigits = trimmed.replace(/\D/g, '').slice(-10);
+    if (phoneDigits.length === 10 && !trimmed.startsWith('VUP-') && trimmed.length <= 14) {
+      return this.admitPassByPhone(phoneDigits);
+    }
+
     // Compute SHA-256 hash of scanned token
     const scannedHash = await computeSha256(trimmed);
     const requestId = crypto.randomUUID ? crypto.randomUUID() : `req-${Date.now()}`;
@@ -1384,6 +1390,86 @@ class VupDatabaseService {
 
     // B. Local Deterministic Validation Engine (Conforms 100% to schema rules)
     return this.admitVisitorLocal(trimmed, scannedHash, requestId);
+  }
+
+  /**
+   * Search for passes registered under a given mobile number
+   */
+  async searchPassByPhone(rawPhone: string): Promise<Pass[]> {
+    const cleanPhone = rawPhone.replace(/\D/g, '').slice(-10);
+    if (!cleanPhone || cleanPhone.length < 5) return [];
+
+    let results: Pass[] = [];
+
+    if (this.supabase) {
+      try {
+        const { data, error } = await this.supabase
+          .from('passes')
+          .select('*')
+          .ilike('holder_phone', `%${cleanPhone}%`)
+          .order('created_at', { ascending: false });
+
+        if (!error && data && data.length > 0) {
+          results = data as Pass[];
+        }
+      } catch (err) {
+        console.warn('Error querying pass by phone in Supabase:', err);
+      }
+    }
+
+    if (results.length === 0) {
+      const localPasses = this.getLocalPasses();
+      results = localPasses.filter(p => {
+        if (!p.holder_phone) return false;
+        const pClean = p.holder_phone.replace(/\D/g, '');
+        return pClean.includes(cleanPhone);
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * Validate and admit a pass holder using their registered 10-digit mobile number
+   */
+  async admitPassByPhone(rawPhone: string): Promise<VerificationResponse> {
+    const cleanPhone = rawPhone.replace(/\D/g, '').slice(-10);
+    if (cleanPhone.length !== 10) {
+      return {
+        success: false,
+        code: 'INVALID',
+        document_type: 'PASS',
+        message: 'Invalid mobile number. Please enter a valid 10-digit mobile number.',
+      };
+    }
+
+    const todayYmd = getTodayIstYmd();
+    const passes = await this.searchPassByPhone(cleanPhone);
+
+    if (passes.length === 0) {
+      const currentStaff = this.getCurrentStaff();
+      this.logAuditEvent({
+        action: 'GATE_PHONE_PASS_NOT_FOUND',
+        entity_type: 'GATE',
+        entity_id: cleanPhone,
+        actor_name: currentStaff?.name || 'Gate Security',
+        actor_email: currentStaff?.email || 'gate1@vedupvan.local',
+        details_summary: `No subscription pass found for Mobile: ${cleanPhone}`,
+      });
+
+      return {
+        success: false,
+        code: 'INVALID',
+        document_type: 'PASS',
+        message: `No active pass found for mobile number ${cleanPhone}!`,
+      };
+    }
+
+    // Pick active pass within valid dates, or the most recent pass
+    const activePass = passes.find(p => p.status === 'ACTIVE' && todayYmd >= p.valid_from && todayYmd <= p.valid_through) || passes[0];
+
+    // Admit using the pass qr_token_sha256 or pass_number
+    return this.admitVisitor(activePass.qr_token_sha256 || activePass.pass_number);
   }
 
   private admitVisitorLocal(rawToken: string, sha256: string, requestId: string): VerificationResponse {

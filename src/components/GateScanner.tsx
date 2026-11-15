@@ -16,7 +16,10 @@ import {
   Lock,
   QrCode,
   Clock,
-  Sparkles
+  Sparkles,
+  Phone,
+  Search,
+  Smartphone
 } from 'lucide-react';
 import { LOGO_URL } from '../assets/logo';
 
@@ -97,6 +100,8 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanSummary, setScanSummary] = useState(() => dbService.getTodayScanSummary());
   const [isScanLocked, setIsScanLocked] = useState<boolean>(false);
+  const [phoneInput, setPhoneInput] = useState<string>('');
+  const [isPhoneValidating, setIsPhoneValidating] = useState<boolean>(false);
 
   const scanLockedRef = useRef<boolean>(false);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
@@ -379,6 +384,48 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
     }
   };
 
+  const handlePhoneValidate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanPhone = phoneInput.replace(/\D/g, '').slice(-10);
+    if (cleanPhone.length !== 10 || isPhoneValidating) return;
+
+    setIsPhoneValidating(true);
+    scanLockedRef.current = true;
+    setIsScanLocked(true);
+
+    try {
+      if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+        html5QrCodeRef.current.pause(true);
+      }
+    } catch (err) {
+      console.warn('Camera pause error during phone validate:', err);
+    }
+
+    try {
+      const response = await dbService.admitPassByPhone(cleanPhone);
+      setVerificationResult(response);
+      refreshScanSummary();
+
+      if (response.success) {
+        sounds.playSuccess();
+        setPhoneInput('');
+      } else {
+        sounds.playError();
+      }
+    } catch (err) {
+      console.error('Phone pass validation error:', err);
+      sounds.playError();
+      setVerificationResult({
+        success: false,
+        code: 'INVALID',
+        document_type: 'PASS',
+        message: `Failed to validate pass for mobile number ${cleanPhone}. Please verify connection.`,
+      });
+    } finally {
+      setIsPhoneValidating(false);
+    }
+  };
+
   return (
     <div className="max-w-2xl mx-auto p-2.5 sm:p-4 space-y-4 sm:space-y-6">
       {/* Header Info Banner with Glassmorphism */}
@@ -635,6 +682,62 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
         </div>
       </div>
 
+      {/* Mobile Number Pass Validation (Forgot Pass Entry) */}
+      <div className="bg-gradient-to-br from-white via-white to-blue-50/40 border border-blue-200/90 rounded-3xl p-4 sm:p-5 shadow-xl shadow-blue-950/10 backdrop-blur-xl space-y-3">
+        <div className="flex items-center justify-between border-b border-blue-100 pb-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-xs shrink-0">
+              <Smartphone className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="font-black text-slate-900 text-sm tracking-tight flex items-center gap-2">
+                <span>Pass Entry via Mobile Number</span>
+                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                  Forgot Pass
+                </span>
+              </h2>
+              <p className="text-[11px] text-slate-500 font-semibold">
+                Pass lana bhul gaye to registered 10-digit mobile number se verify karke entry grant karein
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handlePhoneValidate} className="flex flex-col sm:flex-row gap-2.5">
+          <div className="relative flex-1">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <Phone className="w-4 h-4 text-blue-600" />
+            </div>
+            <input
+              type="tel"
+              maxLength={10}
+              placeholder="Enter 10-digit mobile number (e.g. 98XXXXXXXX)"
+              value={phoneInput}
+              onChange={e => setPhoneInput(e.target.value.replace(/\D/g, '').slice(0, 10))}
+              className="w-full pl-10 pr-3 py-2.5 bg-white border-2 border-blue-200 hover:border-blue-400 focus:border-blue-600 rounded-xl text-sm font-black text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-4 focus:ring-blue-500/20 transition shadow-inner font-mono tracking-wider"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isPhoneValidating || phoneInput.length < 10}
+            className="px-5 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-500 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs sm:text-sm rounded-xl shadow-md shadow-blue-600/30 flex items-center justify-center gap-2 transition disabled:opacity-50 cursor-pointer active:scale-95 shrink-0"
+          >
+            {isPhoneValidating ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                <span>Checking...</span>
+              </>
+            ) : (
+              <>
+                <Search className="w-4 h-4" />
+                <span>Verify & Admit Pass</span>
+              </>
+            )}
+          </button>
+        </form>
+      </div>
+
       {/* Camera Live Scanner Box (Optical QR Scan Only - Zero Manual Entry) */}
       <div className="bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/70 rounded-3xl p-5 sm:p-7 shadow-xl shadow-emerald-950/20 backdrop-blur-xl space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-950/10 pb-3">
@@ -768,7 +871,7 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
         <div className="pt-3 border-t border-emerald-950/10 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-2 text-emerald-900 font-black bg-emerald-50 border border-emerald-200/80 px-3.5 py-1.5 rounded-xl">
             <Lock className="w-3.5 h-3.5 text-emerald-700" />
-            <span>Anti-Fraud Mode Active • Optical QR Scan Only</span>
+            <span>Anti-Fraud Mode Active • Optical QR & Mobile Pass Validation</span>
           </div>
           <div className="flex items-center gap-1.5 text-slate-500 font-bold">
             <Volume2 className="w-3.5 h-3.5 text-emerald-600" />
