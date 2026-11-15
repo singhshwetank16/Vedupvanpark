@@ -55,6 +55,27 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
 
   const totalAmountInr = baseRateInr;
 
+  // Real-time phone number numeric validation
+  const phoneValidation = useMemo(() => {
+    const raw = holderPhone.trim();
+    if (!raw) {
+      return { isValid: false, status: 'EMPTY', message: '10-digit mobile number required' };
+    }
+    if (!/^\d+$/.test(raw)) {
+      return { isValid: false, status: 'INVALID_CHARS', message: 'Only numbers (0-9) allowed' };
+    }
+    if (raw.length > 0 && !/^[6-9]/.test(raw)) {
+      return { isValid: false, status: 'INVALID_START', message: 'Must start with 6, 7, 8, or 9' };
+    }
+    if (raw.length < 10) {
+      return { isValid: false, status: 'INCOMPLETE', message: `${10 - raw.length} more digits needed (${raw.length}/10)` };
+    }
+    if (raw.length === 10 && /^[6-9]\d{9}$/.test(raw)) {
+      return { isValid: true, status: 'VALID', message: '✓ Valid 10-digit Mobile Number' };
+    }
+    return { isValid: false, status: 'INVALID', message: 'Invalid 10-digit mobile number' };
+  }, [holderPhone]);
+
   useEffect(() => {
     if (passType === 'MONTHLY') {
       setValidityDays(30);
@@ -174,8 +195,16 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
     }
 
     const cleanDigits = holderPhone.replace(/\D/g, '').slice(-10);
+    if (!cleanDigits) {
+      alert('Mobile Number is mandatory! Please enter a 10-digit mobile number.');
+      return;
+    }
     if (cleanDigits.length !== 10) {
-      alert('Mobile Number is mandatory! Please enter a valid 10-digit mobile number.');
+      alert(`Invalid Mobile Number! You entered ${cleanDigits.length} digits. Exactly 10 digits are required.`);
+      return;
+    }
+    if (!/^[6-9]\d{9}$/.test(cleanDigits)) {
+      alert('Invalid Mobile Number! Mobile numbers in India must start with 6, 7, 8, or 9.');
       return;
     }
 
@@ -345,33 +374,67 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                       <Phone className="w-3 h-3 text-emerald-600" />
                       <span>Pass Holder Mobile Number *</span>
                     </span>
-                    <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                      Mandatory
+                    <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
+                      phoneValidation.isValid
+                        ? 'text-emerald-800 bg-emerald-50 border-emerald-300'
+                        : 'text-amber-800 bg-amber-50 border-amber-300'
+                    }`}>
+                      {phoneValidation.isValid ? '✓ 10 Digits' : 'Mandatory'}
                     </span>
                   </label>
                   <div className="relative">
                     <input
                       type="tel"
+                      inputMode="numeric"
+                      pattern="[6-9][0-9]{9}"
                       required
                       maxLength={10}
-                      placeholder="10-digit Mobile (e.g. 98...)"
+                      placeholder="e.g. 9876543210 (10 Digits)"
                       value={holderPhone}
                       onChange={e => {
                         const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
                         setHolderPhone(digits);
                       }}
                       className={`w-full px-3 py-2 bg-white border rounded-xl text-slate-900 font-bold placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:ring-2 text-xs sm:text-sm shadow-2xs transition font-mono ${
-                        existingActivePass
+                        existingActivePass || (holderPhone.length > 0 && !phoneValidation.isValid && phoneValidation.status !== 'INCOMPLETE')
                           ? 'border-red-400 focus:ring-red-400 bg-red-50/20'
-                          : holderPhone.length === 10
-                            ? 'border-emerald-500 focus:ring-emerald-500'
+                          : phoneValidation.isValid
+                            ? 'border-emerald-500 focus:ring-emerald-500 bg-emerald-50/20'
                             : 'border-slate-200 focus:ring-emerald-500'
                       }`}
                     />
-                    {isCheckingPhone && (
+                    {isCheckingPhone ? (
                       <div className="absolute right-2.5 top-2.5 text-emerald-600">
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                       </div>
+                    ) : phoneValidation.isValid && !existingActivePass ? (
+                      <div className="absolute right-2.5 top-2.5 text-emerald-600 font-black text-xs">
+                        ✓
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {/* Real-time Validation Helper Message */}
+                  <div className="mt-1">
+                    {phoneValidation.status === 'EMPTY' && (
+                      <span className="text-[10px] text-slate-500 font-medium flex items-center gap-1">
+                        <span className="text-red-500">*</span> Enter 10-digit mobile number (starts with 6, 7, 8, 9)
+                      </span>
+                    )}
+                    {phoneValidation.status === 'INVALID_START' && (
+                      <span className="text-[10px] text-red-600 font-bold flex items-center gap-1">
+                        ❌ Invalid: Mobile number must start with 6, 7, 8, or 9
+                      </span>
+                    )}
+                    {phoneValidation.status === 'INCOMPLETE' && (
+                      <span className="text-[10px] text-amber-700 font-bold flex items-center gap-1">
+                        ⚠️ {phoneValidation.message}
+                      </span>
+                    )}
+                    {phoneValidation.status === 'VALID' && !existingActivePass && (
+                      <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
+                        ✓ Valid 10-Digit Mobile Number
+                      </span>
                     )}
                   </div>
                 </div>
@@ -509,9 +572,15 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
 
               <button
                 type="submit"
-                disabled={isGenerating || existingActivePass !== null}
+                disabled={isGenerating || !phoneValidation.isValid || existingActivePass !== null}
                 className="px-6 py-3 bg-white hover:bg-emerald-50 active:scale-95 text-emerald-950 font-black rounded-xl shadow-lg shadow-black/20 flex items-center justify-center gap-1.5 text-xs sm:text-sm disabled:opacity-50 transition cursor-pointer"
-                title={existingActivePass ? 'Cannot issue pass: Active pass already exists for this mobile number' : undefined}
+                title={
+                  existingActivePass
+                    ? 'Cannot issue pass: Active pass already exists for this mobile number'
+                    : !phoneValidation.isValid
+                      ? 'Please enter a valid 10-digit mobile number'
+                      : undefined
+                }
               >
                 <Printer className="w-4 h-4 text-emerald-700" />
                 <span>
@@ -519,7 +588,9 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                     ? 'Generating...'
                     : existingActivePass
                       ? 'Active Pass Exists'
-                      : 'Issue & Print Pass'}
+                      : !phoneValidation.isValid
+                        ? 'Enter 10-Digit Mobile'
+                        : 'Issue & Print Pass'}
                 </span>
               </button>
             </div>

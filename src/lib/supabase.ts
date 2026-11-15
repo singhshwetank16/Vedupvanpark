@@ -1176,10 +1176,10 @@ class VupDatabaseService {
     duration_days?: number;
     price_paise?: number;
   }): Promise<Pass> {
-    // 0. Strict validation: Mobile number is mandatory (10 digits)
+    // 0. Strict validation: Mobile number is mandatory (valid 10 digits starting with 6-9)
     const cleanPhone = (params.holder_phone || '').replace(/\D/g, '').slice(-10);
-    if (!cleanPhone || cleanPhone.length !== 10) {
-      throw new Error('Valid 10-digit mobile number is mandatory for subscription passes.');
+    if (!cleanPhone || cleanPhone.length !== 10 || !/^[6-9]\d{9}$/.test(cleanPhone)) {
+      throw new Error('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
     }
 
     // 1. Strict validation: No duplicate active pass until existing pass validity expires
