@@ -263,23 +263,16 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
   };
 
   const handleSettingsTabClick = () => {
-    if (activeSection === 'settings' && isSettingsUnlocked) {
-      return;
+    setActiveSection('settings');
+    if (!isSettingsUnlocked) {
+      setSettingsPasswordInput('');
+      setSettingsAuthError(null);
+      setShowSettingsPassword(false);
+      setIsSettingsAuthModalOpen(true);
     }
-    // Always prompt for Administrator password when entering Settings from outside
-    setIsSettingsUnlocked(false);
-    setSettingsPasswordInput('');
-    setSettingsAuthError(null);
-    setShowSettingsPassword(false);
-    setIsSettingsAuthModalOpen(true);
   };
 
-  const handleSwitchSection = (section: 'reports' | 'users' | 'audit') => {
-    // Immediately lock Settings and clear inputs whenever navigating away from Settings
-    setIsSettingsUnlocked(false);
-    setSettingsPasswordInput('');
-    setSettingsAuthError(null);
-    setShowSettingsPassword(false);
+  const handleSwitchSection = (section: 'reports' | 'users' | 'audit' | 'settings') => {
     setActiveSection(section);
   };
 
@@ -287,23 +280,18 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
     setIsSettingsAuthModalOpen(false);
     setSettingsPasswordInput('');
     setSettingsAuthError(null);
-    if (activeSection === 'settings' && !isSettingsUnlocked) {
-      setActiveSection('reports');
-    }
   };
 
-  // Auto-lock Settings whenever leaving Settings, navigating away, or switching browser tabs/minimizing
+  // Auto-lock Settings whenever switching browser tabs/minimizing
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden && activeSection === 'settings') {
         setIsSettingsUnlocked(false);
-        setActiveSection('reports');
       }
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      setIsSettingsUnlocked(false);
     };
   }, [activeSection]);
 
@@ -378,14 +366,17 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
   const [datePreset, setDatePreset] = useState<'today' | 'yesterday' | 'week' | 'month' | 'all' | 'custom'>('today');
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 8000);
+    loadData(true);
+    // Background quiet polling every 60s without freezing UI or spinning
+    const interval = setInterval(() => {
+      loadData(false);
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 
-  const loadData = async () => {
+  const loadData = async (showSpinner = false) => {
     try {
-      setIsLoading(true);
+      if (showSpinner) setIsLoading(true);
       const [reportingData, staffData, auditData] = await Promise.all([
         dbService.fetchReportingData().catch(() => ({
           tickets: dbService.getLocalTickets(),
@@ -406,7 +397,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
       setPasses(dbService.getLocalPasses());
       setEntryEvents(dbService.getLocalEntryEvents());
     } finally {
-      setIsLoading(false);
+      if (showSpinner) setIsLoading(false);
     }
   };
 
@@ -791,10 +782,11 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
     URL.revokeObjectURL(url);
   };
 
+  const cachedDefaultDev = useMemo(() => getSystemDeviceInfo(), [customDeviceInput]);
+
   const renderDeviceBadge = (deviceName?: string, deviceType?: string) => {
-    const defaultDev = getSystemDeviceInfo();
-    const finalDeviceName = (deviceName && deviceName.trim()) ? deviceName.trim() : defaultDev.deviceName;
-    const finalDeviceType = deviceType || defaultDev.deviceType;
+    const finalDeviceName = (deviceName && deviceName.trim()) ? deviceName.trim() : cachedDefaultDev.deviceName;
+    const finalDeviceType = deviceType || cachedDefaultDev.deviceType;
     const isMobile = finalDeviceType === 'MOBILE' || /mobile|phone|android|iphone/i.test(finalDeviceName);
     const isTablet = finalDeviceType === 'TABLET' || /tablet|ipad/i.test(finalDeviceName);
 
@@ -1475,23 +1467,42 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
   };
 
   // Top Global KPIs for today (Indian Standard Time)
-  const todayTickets = tickets.filter(t => isSameIstDay(t.created_at, todayYmd));
-  const todayPasses = passes.filter(p => isSameIstDay(p.created_at, todayYmd));
+  const {
+    todayPasses,
+    todayRevenueInr,
+    todayCashPaise,
+    todayUpiPaise,
+    totalVisitorsAdmitted,
+    activeTicketsCount,
+    usedTicketsCount,
+  } = useMemo(() => {
+    const tToday = tickets.filter(t => isSameIstDay(t.created_at, todayYmd));
+    const pToday = passes.filter(p => isSameIstDay(p.created_at, todayYmd));
 
-  const todayRevenuePaise = todayTickets.reduce((sum, t) => sum + (t.price_paise || (t.persons_count || 1) * 1000), 0) +
-    todayPasses.reduce((sum, p) => sum + getPassEffectiveAmountPaise(p, ratesForm), 0);
-  const todayRevenueInr = (todayRevenuePaise / 100).toFixed(2);
+    const revPaise = tToday.reduce((sum, t) => sum + (t.price_paise || (t.persons_count || 1) * 1000), 0) +
+      pToday.reduce((sum, p) => sum + getPassEffectiveAmountPaise(p, ratesForm), 0);
 
-  const todayCashPaise = todayTickets.filter(t => (t.payment_method || 'CASH') === 'CASH').reduce((sum, t) => sum + (t.price_paise || (t.persons_count || 1) * 1000), 0) +
-    todayPasses.filter(p => (p.payment_method || 'CASH') === 'CASH').reduce((sum, p) => sum + getPassEffectiveAmountPaise(p, ratesForm), 0);
-  const todayUpiPaise = todayTickets.filter(t => t.payment_method === 'UPI').reduce((sum, t) => sum + (t.price_paise || (t.persons_count || 1) * 1000), 0) +
-    todayPasses.filter(p => p.payment_method === 'UPI').reduce((sum, p) => sum + getPassEffectiveAmountPaise(p, ratesForm), 0);
+    const cashPaise = tToday.filter(t => (t.payment_method || 'CASH') === 'CASH').reduce((sum, t) => sum + (t.price_paise || (t.persons_count || 1) * 1000), 0) +
+      pToday.filter(p => (p.payment_method || 'CASH') === 'CASH').reduce((sum, p) => sum + getPassEffectiveAmountPaise(p, ratesForm), 0);
 
-  const todaySuccessEvents = entryEvents.filter(e => e.result === 'SUCCESS' && isSameIstDay(e.scanned_at, todayYmd));
-  const totalVisitorsAdmitted = todaySuccessEvents.reduce((sum, e) => sum + (e.persons_admitted || 1), 0);
+    const upiPaise = tToday.filter(t => t.payment_method === 'UPI').reduce((sum, t) => sum + (t.price_paise || (t.persons_count || 1) * 1000), 0) +
+      pToday.filter(p => p.payment_method === 'UPI').reduce((sum, p) => sum + getPassEffectiveAmountPaise(p, ratesForm), 0);
 
-  const activeTicketsCount = todayTickets.filter(t => t.status === 'ACTIVE').length;
-  const usedTicketsCount = todayTickets.filter(t => t.status === 'USED').length;
+    const succEvents = entryEvents.filter(e => e.result === 'SUCCESS' && isSameIstDay(e.scanned_at, todayYmd));
+    const visitors = succEvents.reduce((sum, e) => sum + (e.persons_admitted || 1), 0);
+
+    return {
+      todayTickets: tToday,
+      todayPasses: pToday,
+      todayRevenuePaise: revPaise,
+      todayRevenueInr: (revPaise / 100).toFixed(2),
+      todayCashPaise: cashPaise,
+      todayUpiPaise: upiPaise,
+      totalVisitorsAdmitted: visitors,
+      activeTicketsCount: tToday.filter(t => t.status === 'ACTIVE').length,
+      usedTicketsCount: tToday.filter(t => t.status === 'USED').length,
+    };
+  }, [tickets, passes, entryEvents, todayYmd, ratesForm]);
 
   return (
     <div className="max-w-7xl mx-auto p-2.5 sm:p-4 space-y-4 sm:space-y-6">
@@ -1661,7 +1672,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
 
         <button
           type="button"
-          onClick={loadData}
+          onClick={() => loadData(true)}
           disabled={isLoading}
           className="px-4 py-2.5 bg-slate-100/90 hover:bg-slate-200/90 text-slate-700 rounded-xl sm:rounded-2xl text-xs font-black transition flex items-center justify-center gap-2 cursor-pointer shrink-0 border border-slate-200/60 active:scale-95"
         >
@@ -1673,8 +1684,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
       {/* =========================================================================
          SECTION A: 8 OFFICIAL REPORTS WITH DATE FILTER & PDF EXPORT
          ========================================================================= */}
-      {activeSection === 'reports' && (
-        <div className="space-y-5 no-print">
+      <div className={activeSection === 'reports' ? 'space-y-5 no-print' : 'hidden'}>
           {/* 8 Report Selector Pill Tabs */}
           <div className="bg-white border border-slate-200 rounded-3xl p-4 shadow-sm">
             <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
@@ -2629,13 +2639,11 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
             )}
           </div>
         </div>
-      )}
 
       {/* =========================================================================
          SECTION B: USER MASTER (STAFF & ROLE MANAGEMENT)
          ========================================================================= */}
-      {activeSection === 'users' && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-5 no-print">
+      <div className={activeSection === 'users' ? 'bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-5 no-print' : 'hidden'}>
           {/* Header & Quick Action */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
@@ -2947,13 +2955,11 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
             </table>
           </div>
         </div>
-      )}
 
       {/* =========================================================================
          SECTION C: AUDIT & SYSTEM ACTIVITY LOGS
          ========================================================================= */}
-      {activeSection === 'audit' && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4 no-print">
+      <div className={activeSection === 'audit' ? 'bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4 no-print' : 'hidden'}>
           {/* Header & Quick Action Buttons */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
@@ -3141,13 +3147,11 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
             </table>
           </div>
         </div>
-      )}
 
       {/* =========================================================================
          SECTION D: SYSTEM & HARDWARE SETTINGS
          ========================================================================= */}
-      {activeSection === 'settings' && isSettingsUnlocked && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-6 no-print">
+      <div className={activeSection === 'settings' && isSettingsUnlocked ? 'bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-6 no-print' : 'hidden'}>
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
@@ -3599,34 +3603,31 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
             </div>
           </div>
         </div>
-      )}
 
       {/* Locked card when Settings tab is active but not yet unlocked with password */}
-      {activeSection === 'settings' && !isSettingsUnlocked && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 text-center space-y-4 shadow-sm no-print max-w-md mx-auto my-6 animate-in fade-in">
-          <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto border border-amber-200 shadow-xs">
-            <Lock className="w-8 h-8" />
-          </div>
-          <div>
-            <h3 className="text-lg font-black text-slate-900">Settings Area Locked</h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Administrator password verification is required to access system settings & rates.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setSettingsPasswordInput('');
-              setSettingsAuthError(null);
-              setIsSettingsAuthModalOpen(true);
-            }}
-            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black rounded-xl text-xs shadow-md shadow-emerald-600/20 cursor-pointer transition inline-flex items-center gap-2"
-          >
-            <Lock className="w-3.5 h-3.5" />
-            <span>Enter Admin Password</span>
-          </button>
+      <div className={activeSection === 'settings' && !isSettingsUnlocked ? 'bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 text-center space-y-4 shadow-sm no-print max-w-md mx-auto my-6 animate-in fade-in' : 'hidden'}>
+        <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto border border-amber-200 shadow-xs">
+          <Lock className="w-8 h-8" />
         </div>
-      )}
+        <div>
+          <h3 className="text-lg font-black text-slate-900">Settings Area Locked</h3>
+          <p className="text-xs text-slate-500 mt-1">
+            Administrator password verification is required to access system settings & rates.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setSettingsPasswordInput('');
+            setSettingsAuthError(null);
+            setIsSettingsAuthModalOpen(true);
+          }}
+          className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black rounded-xl text-xs shadow-md shadow-emerald-600/20 cursor-pointer transition inline-flex items-center gap-2"
+        >
+          <Lock className="w-3.5 h-3.5" />
+          <span>Enter Admin Password</span>
+        </button>
+      </div>
 
       {/* =========================================================================
          MODAL 1: ADD / EDIT STAFF MODAL
