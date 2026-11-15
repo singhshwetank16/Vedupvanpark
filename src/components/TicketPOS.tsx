@@ -3,7 +3,6 @@ import type { Ticket, AppConfig, PaymentMethod } from '../types';
 import { dbService } from '../lib/supabase';
 import { printerService } from '../lib/printer';
 import { Users, Printer, QrCode, RefreshCw, Clock, Banknote, Smartphone, FileText, Search, X } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
 import { LOGO_URL } from '../assets/logo';
 import { isSameIstDay } from '../lib/dateUtils';
 
@@ -316,31 +315,6 @@ export const TicketPOS: React.FC<TicketPOSProps> = ({ config, onTicketGenerated 
                 <span className="text-xs sm:text-sm">2. Digital UPI</span>
               </button>
             </div>
-
-            {/* Dynamic Customer UPI QR Box when UPI is selected (Compact Inline) */}
-            {paymentMode === 'UPI' && (
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50/70 border border-blue-200/80 rounded-xl p-2.5 flex items-center gap-3 shadow-xs animate-in fade-in duration-150">
-                <div className="p-1 bg-white rounded-xl border border-blue-200 shadow-xs shrink-0">
-                  <QRCodeSVG
-                    value={`upi://pay?pa=vedupvan@upi&pn=Ved%20Upvan%20Park&am=${totalAmountInr}&cu=INR&tn=Park%20Ticket%20${persons}%20Persons`}
-                    size={68}
-                    level="M"
-                  />
-                </div>
-                <div className="text-left space-y-0.5 min-w-0">
-                  <div className="text-xs font-black text-blue-950 uppercase tracking-wide flex items-center gap-1.5">
-                    <Smartphone className="w-3.5 h-3.5 text-blue-700" />
-                    <span>Customer Scan & Pay: ₹{totalAmountInr.toFixed(2)}</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 font-medium truncate">
-                    Google Pay, PhonePe, Paytm, or BHIM.
-                  </p>
-                  <span className="text-[10px] text-blue-900 font-black px-2 py-0.5 rounded bg-blue-100/80 inline-block">
-                    {persons} {persons === 1 ? 'Person' : 'Persons'} • ₹{totalAmountInr.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Step 3: Total & Big Print Button Hero Bar */}

@@ -11,12 +11,10 @@ import {
   UserCheck,
   Banknote,
   QrCode,
-  Smartphone,
   User,
   Phone,
   RefreshCw
 } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
 import { LOGO_URL } from '../assets/logo';
 
 interface PassManagerProps {
@@ -330,31 +328,6 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                   <span>2. UPI</span>
                 </button>
               </div>
-
-              {/* Dynamic Customer UPI QR Box when UPI is selected */}
-              {paymentMode === 'UPI' && (
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50/70 border border-blue-200/80 rounded-xl p-2.5 flex items-center gap-3 transition-all duration-150 shadow-xs">
-                  <div className="p-1 bg-white rounded-xl border border-blue-200 shadow-xs shrink-0">
-                    <QRCodeSVG
-                      value={`upi://pay?pa=vedupvan@upi&pn=Ved%20Upvan%20Park&am=${totalAmountInr}&cu=INR&tn=${passType}%20Pass%20Subscription`}
-                      size={64}
-                      level="M"
-                    />
-                  </div>
-                  <div className="text-left space-y-0.5 min-w-0">
-                    <div className="text-xs font-black text-blue-950 uppercase tracking-wide flex items-center gap-1">
-                      <Smartphone className="w-3.5 h-3.5 text-blue-700" />
-                      <span>Scan & Pay Subscription: ₹{totalAmountInr.toFixed(2)}</span>
-                    </div>
-                    <p className="text-[11px] text-slate-600 font-medium truncate">
-                      Google Pay, PhonePe, Paytm, or BHIM.
-                    </p>
-                    <span className="text-[10px] text-blue-900 font-bold bg-white/80 px-2 py-0.5 rounded border border-blue-200/60 inline-block">
-                      Plan: {passType === 'MONTHLY' ? `${validityDays} Days Pass` : 'Yearly Pass'}
-                    </span>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Total and Submit Hero Bar */}
