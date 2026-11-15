@@ -392,13 +392,28 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                   className="bg-white p-2.5 rounded-xl border border-slate-200/90 hover:border-emerald-300 transition space-y-1.5 group"
                 >
                   <div className="flex items-center justify-between">
-                    <span className={`text-[9px] font-black px-2 py-0.2 rounded-full ${
-                      pass.pass_type === 'YEARLY'
-                        ? 'bg-purple-100 text-purple-800'
-                        : 'bg-emerald-100 text-emerald-800'
-                    }`}>
-                      {pass.pass_type === 'YEARLY' ? 'YEARLY' : 'MONTHLY'}
-                    </span>
+                    {(() => {
+                      const isYearly = pass.pass_type === 'YEARLY';
+                      const pName = (pass.plan_name || '').toLowerCase();
+                      const amt = pass.amount_paise || 0;
+                      let badgeLabel = '1 Month (30D)';
+                      let badgeStyle = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+                      if (isYearly) {
+                        badgeLabel = '1 Year (365D)';
+                        badgeStyle = 'bg-purple-100 text-purple-800 border-purple-200';
+                      } else if (pName.includes('3 month') || amt === 90000) {
+                        badgeLabel = '3 Months (90D)';
+                        badgeStyle = 'bg-indigo-100 text-indigo-800 border-indigo-200';
+                      } else if (pName.includes('2 month') || amt === 60000) {
+                        badgeLabel = '2 Months (60D)';
+                        badgeStyle = 'bg-blue-100 text-blue-800 border-blue-200';
+                      }
+                      return (
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${badgeStyle}`}>
+                          {badgeLabel}
+                        </span>
+                      );
+                    })()}
                     <span className="font-mono text-[11px] font-black text-slate-700">{pass.pass_number}</span>
                   </div>
 

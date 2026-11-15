@@ -65,6 +65,77 @@ type ReportType =
   | 'monthly-scan-pass'
   | 'yearly-scan-pass';
 
+export type MonthlyDurationCategory = 'ALL' | '1_MONTH' | '2_MONTHS' | '3_MONTHS';
+
+export interface PassDurationCategoryInfo {
+  category: '1_MONTH' | '2_MONTHS' | '3_MONTHS' | 'YEARLY' | 'OTHER';
+  label: string;
+  shortLabel: string;
+  days: number;
+  months: number;
+  expectedRateInr: number;
+}
+
+export const getPassDurationCategory = (p: Pass): PassDurationCategoryInfo => {
+  if (p.pass_type === 'YEARLY') {
+    return {
+      category: 'YEARLY',
+      label: '1 Year (365 Days)',
+      shortLabel: '1 Year',
+      days: 365,
+      months: 12,
+      expectedRateInr: 3100,
+    };
+  }
+
+  const name = (p.plan_name || '').toLowerCase();
+  const amount = p.amount_paise || 0;
+
+  // Day difference calculation
+  let diffDays = 30;
+  if (p.valid_from && p.valid_through) {
+    const fromTime = new Date(p.valid_from).getTime();
+    const throughTime = new Date(p.valid_through).getTime();
+    if (!isNaN(fromTime) && !isNaN(throughTime) && throughTime > fromTime) {
+      diffDays = Math.round((throughTime - fromTime) / (1000 * 60 * 60 * 24));
+    }
+  }
+
+  // Check 3 Months (approx 90 days or ₹900)
+  if (name.includes('3 month') || name.includes('3m') || name.includes('90 day') || amount === 90000 || diffDays >= 75) {
+    return {
+      category: '3_MONTHS',
+      label: '3 Months (90 Days)',
+      shortLabel: '3 Months',
+      days: 90,
+      months: 3,
+      expectedRateInr: 900,
+    };
+  }
+
+  // Check 2 Months (approx 60 days or ₹600)
+  if (name.includes('2 month') || name.includes('2m') || name.includes('60 day') || amount === 60000 || (diffDays >= 45 && diffDays < 75)) {
+    return {
+      category: '2_MONTHS',
+      label: '2 Months (60 Days)',
+      shortLabel: '2 Months',
+      days: 60,
+      months: 2,
+      expectedRateInr: 600,
+    };
+  }
+
+  // Default to 1 Month (approx 30 days or ₹300)
+  return {
+    category: '1_MONTH',
+    label: '1 Month (30 Days)',
+    shortLabel: '1 Month',
+    days: 30,
+    months: 1,
+    expectedRateInr: 300,
+  };
+};
+
 export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGenerated }) => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [passes, setPasses] = useState<Pass[]>([]);
@@ -264,6 +335,9 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
 
   // Active report out of 8
   const [selectedReport, setSelectedReport] = useState<ReportType>('daily-sales');
+
+  // Filter for Monthly Pass Duration: 'ALL' | '1_MONTH' | '2_MONTHS' | '3_MONTHS'
+  const [monthlyDurationFilter, setMonthlyDurationFilter] = useState<MonthlyDurationCategory>('ALL');
 
   // Date Filters (Indian Standard Time)
   const todayYmd = getTodayIstYmd();
@@ -878,6 +952,10 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
       date: string;
       ticketsCount: number;
       passesCount: number;
+      passes1mCount: number;
+      passes2mCount: number;
+      passes3mCount: number;
+      passesYearlyCount: number;
       personsCount: number;
       cashPaise: number;
       upiPaise: number;
@@ -890,6 +968,10 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
         date: d,
         ticketsCount: 0,
         passesCount: 0,
+        passes1mCount: 0,
+        passes2mCount: 0,
+        passes3mCount: 0,
+        passesYearlyCount: 0,
         personsCount: 0,
         cashPaise: 0,
         upiPaise: 0,
@@ -913,13 +995,27 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
         date: d,
         ticketsCount: 0,
         passesCount: 0,
+        passes1mCount: 0,
+        passes2mCount: 0,
+        passes3mCount: 0,
+        passesYearlyCount: 0,
         personsCount: 0,
         cashPaise: 0,
         upiPaise: 0,
         totalPaise: 0,
       };
-      const amount = p.amount_paise || (p.pass_type === 'YEARLY' ? 310000 : 30000);
+      const dInfo = getPassDurationCategory(p);
+      const amount = p.amount_paise || (p.pass_type === 'YEARLY' ? 310000 : (dInfo.expectedRateInr * 100));
       entry.passesCount += 1;
+      if (p.pass_type === 'YEARLY') {
+        entry.passesYearlyCount += 1;
+      } else if (dInfo.category === '3_MONTHS') {
+        entry.passes3mCount += 1;
+      } else if (dInfo.category === '2_MONTHS') {
+        entry.passes2mCount += 1;
+      } else {
+        entry.passes1mCount += 1;
+      }
       entry.personsCount += (p.people_allowed || 1);
       if (p.payment_method === 'UPI') {
         entry.upiPaise += amount;
@@ -942,6 +1038,10 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
       monthName: string;
       ticketsCount: number;
       passesCount: number;
+      passes1mCount: number;
+      passes2mCount: number;
+      passes3mCount: number;
+      passesYearlyCount: number;
       personsCount: number;
       cashPaise: number;
       upiPaise: number;
@@ -961,6 +1061,10 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
         monthName: getMonthName(ym),
         ticketsCount: 0,
         passesCount: 0,
+        passes1mCount: 0,
+        passes2mCount: 0,
+        passes3mCount: 0,
+        passesYearlyCount: 0,
         personsCount: 0,
         cashPaise: 0,
         upiPaise: 0,
@@ -985,13 +1089,27 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
         monthName: getMonthName(ym),
         ticketsCount: 0,
         passesCount: 0,
+        passes1mCount: 0,
+        passes2mCount: 0,
+        passes3mCount: 0,
+        passesYearlyCount: 0,
         personsCount: 0,
         cashPaise: 0,
         upiPaise: 0,
         totalPaise: 0,
       };
-      const amount = p.amount_paise || (p.pass_type === 'YEARLY' ? 310000 : 30000);
+      const dInfo = getPassDurationCategory(p);
+      const amount = p.amount_paise || (p.pass_type === 'YEARLY' ? 310000 : (dInfo.expectedRateInr * 100));
       entry.passesCount += 1;
+      if (p.pass_type === 'YEARLY') {
+        entry.passesYearlyCount += 1;
+      } else if (dInfo.category === '3_MONTHS') {
+        entry.passes3mCount += 1;
+      } else if (dInfo.category === '2_MONTHS') {
+        entry.passes2mCount += 1;
+      } else {
+        entry.passes1mCount += 1;
+      }
       entry.personsCount += (p.people_allowed || 1);
       if (p.payment_method === 'UPI') {
         entry.upiPaise += amount;
@@ -1026,11 +1144,56 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
   // =========================================================================
   // REPORT 5: MONTHLY SUBSCRIPTION GENERATE PASS REPORT
   // =========================================================================
-  const monthlyGeneratePassData = useMemo(() => {
+  const allMonthlyGeneratePassData = useMemo(() => {
     return passes
       .filter(p => p.pass_type === 'MONTHLY' && isDateInRange(p.created_at))
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
   }, [passes, startDate, endDate]);
+
+  // Comprehensive Breakdown of Monthly Passes by duration
+  const monthlyPassBreakdown = useMemo(() => {
+    let count1M = 0;
+    let revPaise1M = 0;
+    let count2M = 0;
+    let revPaise2M = 0;
+    let count3M = 0;
+    let revPaise3M = 0;
+
+    allMonthlyGeneratePassData.forEach(p => {
+      const info = getPassDurationCategory(p);
+      const amount = p.amount_paise || (info.expectedRateInr * 100);
+      if (info.category === '3_MONTHS') {
+        count3M += 1;
+        revPaise3M += amount;
+      } else if (info.category === '2_MONTHS') {
+        count2M += 1;
+        revPaise2M += amount;
+      } else {
+        count1M += 1;
+        revPaise1M += amount;
+      }
+    });
+
+    const totalCount = allMonthlyGeneratePassData.length;
+    const totalRevPaise = revPaise1M + revPaise2M + revPaise3M;
+
+    return {
+      totalCount,
+      totalRevPaise,
+      m1: { count: count1M, revPaise: revPaise1M },
+      m2: { count: count2M, revPaise: revPaise2M },
+      m3: { count: count3M, revPaise: revPaise3M },
+    };
+  }, [allMonthlyGeneratePassData]);
+
+  // Filtered dataset for Table & Export based on monthlyDurationFilter
+  const monthlyGeneratePassData = useMemo(() => {
+    if (monthlyDurationFilter === 'ALL') return allMonthlyGeneratePassData;
+    return allMonthlyGeneratePassData.filter(p => {
+      const info = getPassDurationCategory(p);
+      return info.category === monthlyDurationFilter;
+    });
+  }, [allMonthlyGeneratePassData, monthlyDurationFilter]);
 
   // =========================================================================
   // REPORT 6: YEARLY SUBSCRIPTION GENERATE PASS REPORT
@@ -1125,22 +1288,24 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
     let rows: (string | number)[][] = [];
 
     if (selectedReport === 'daily-sales') {
-      headers = ['Date', 'Tickets Sold', 'Passes Sold', 'Total Persons', 'Cash Amount (INR)', 'UPI Amount (INR)', 'Total Amount (INR)'];
+      headers = ['Date', 'Tickets Sold', 'Passes Sold', 'Passes Breakdown', 'Total Persons', 'Cash Amount (INR)', 'UPI Amount (INR)', 'Total Amount (INR)'];
       rows = dailySaleData.map(r => [
         r.date,
         r.ticketsCount,
         r.passesCount,
+        r.passesCount > 0 ? `1M: ${r.passes1mCount}, 2M: ${r.passes2mCount}, 3M: ${r.passes3mCount}${r.passesYearlyCount > 0 ? `, 1Y: ${r.passesYearlyCount}` : ''}` : 'None',
         r.personsCount,
         (r.cashPaise / 100).toFixed(2),
         (r.upiPaise / 100).toFixed(2),
         (r.totalPaise / 100).toFixed(2),
       ]);
     } else if (selectedReport === 'monthly-sales') {
-      headers = ['Month', 'Tickets Sold', 'Passes Sold', 'Total Persons', 'Cash Amount (INR)', 'UPI Amount (INR)', 'Total Revenue (INR)'];
+      headers = ['Month', 'Tickets Sold', 'Passes Sold', 'Passes Breakdown', 'Total Persons', 'Cash Amount (INR)', 'UPI Amount (INR)', 'Total Revenue (INR)'];
       rows = monthlySaleData.map(r => [
         r.monthName,
         r.ticketsCount,
         r.passesCount,
+        r.passesCount > 0 ? `1M: ${r.passes1mCount}, 2M: ${r.passes2mCount}, 3M: ${r.passes3mCount}${r.passesYearlyCount > 0 ? `, 1Y: ${r.passesYearlyCount}` : ''}` : 'None',
         r.personsCount,
         (r.cashPaise / 100).toFixed(2),
         (r.upiPaise / 100).toFixed(2),
@@ -1168,24 +1333,29 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
         r.status,
       ]);
     } else if (selectedReport === 'monthly-generate-pass') {
-      headers = ['Issue Timestamp (IST)', 'Pass Number', 'Holder Name', 'Phone', 'People Allowed', 'Valid From', 'Valid Through', 'Payment Mode', 'Amount (INR)', 'Status'];
-      rows = monthlyGeneratePassData.map(r => [
-        new Date(r.created_at).toLocaleString('en-IN'),
-        r.pass_number,
-        r.holder_name,
-        r.holder_phone || '—',
-        r.people_allowed,
-        r.valid_from,
-        r.valid_through,
-        r.payment_method || 'CASH',
-        ((r.amount_paise || 30000) / 100).toFixed(2),
-        r.status,
-      ]);
+      headers = ['Issue Timestamp (IST)', 'Pass Number', 'Plan Duration', 'Holder Name', 'Phone', 'People Allowed', 'Valid From', 'Valid Through', 'Payment Mode', 'Amount (INR)', 'Status'];
+      rows = monthlyGeneratePassData.map(r => {
+        const dInfo = getPassDurationCategory(r);
+        return [
+          new Date(r.created_at).toLocaleString('en-IN'),
+          r.pass_number,
+          dInfo.label,
+          r.holder_name,
+          r.holder_phone || '—',
+          r.people_allowed,
+          r.valid_from,
+          r.valid_through,
+          r.payment_method || 'CASH',
+          ((r.amount_paise || (dInfo.expectedRateInr * 100)) / 100).toFixed(2),
+          r.status,
+        ];
+      });
     } else if (selectedReport === 'yearly-generate-pass') {
-      headers = ['Issue Timestamp (IST)', 'Pass Number', 'Holder Name', 'Phone', 'People Allowed', 'Valid From', 'Valid Through', 'Payment Mode', 'Amount (INR)', 'Status'];
+      headers = ['Issue Timestamp (IST)', 'Pass Number', 'Plan Duration', 'Holder Name', 'Phone', 'People Allowed', 'Valid From', 'Valid Through', 'Payment Mode', 'Amount (INR)', 'Status'];
       rows = yearlyGeneratePassData.map(r => [
         new Date(r.created_at).toLocaleString('en-IN'),
         r.pass_number,
+        '1 Year (365 Days)',
         r.holder_name,
         r.holder_phone || '—',
         r.people_allowed,
@@ -1329,6 +1499,18 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                 UPI: ₹{(todayUpiPaise / 100).toFixed(0)}
               </span>
             </div>
+            {todayPasses.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1 mt-1.5 text-[10px] font-bold text-slate-600">
+                <span>Passes:</span>
+                <span className="text-slate-900 font-black">{todayPasses.length}</span>
+                <span className="text-slate-400">•</span>
+                <span className="text-emerald-700">1M: {todayPasses.filter(p => getPassDurationCategory(p).category === '1_MONTH').length}</span>
+                <span className="text-slate-400">•</span>
+                <span className="text-blue-700">2M: {todayPasses.filter(p => getPassDurationCategory(p).category === '2_MONTHS').length}</span>
+                <span className="text-slate-400">•</span>
+                <span className="text-indigo-700">3M: {todayPasses.filter(p => getPassDurationCategory(p).category === '3_MONTHS').length}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1618,7 +1800,33 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                         <tr key={r.date} className="hover:bg-slate-50 transition">
                           <td className="py-3 px-3 font-mono font-bold text-slate-900">{r.date}</td>
                           <td className="py-3 px-3 text-slate-700">{r.ticketsCount}</td>
-                          <td className="py-3 px-3 text-slate-700">{r.passesCount}</td>
+                          <td className="py-3 px-3 text-slate-700">
+                            <div className="font-bold text-slate-900">{r.passesCount}</div>
+                            {r.passesCount > 0 && (
+                              <div className="flex flex-wrap items-center gap-1 mt-0.5 text-[9px] font-bold">
+                                {r.passes1mCount > 0 && (
+                                  <span className="px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 border border-emerald-200" title="1 Month Passes">
+                                    1M:{r.passes1mCount}
+                                  </span>
+                                )}
+                                {r.passes2mCount > 0 && (
+                                  <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-800 border border-blue-200" title="2 Months Passes">
+                                    2M:{r.passes2mCount}
+                                  </span>
+                                )}
+                                {r.passes3mCount > 0 && (
+                                  <span className="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-800 border border-indigo-200" title="3 Months Passes">
+                                    3M:{r.passes3mCount}
+                                  </span>
+                                )}
+                                {r.passesYearlyCount > 0 && (
+                                  <span className="px-1.5 py-0.2 rounded bg-purple-50 text-purple-800 border border-purple-200" title="Yearly Passes">
+                                    1Y:{r.passesYearlyCount}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </td>
                           <td className="py-3 px-3 font-bold text-emerald-800">{r.personsCount} Persons</td>
                           <td className="py-3 px-3 font-semibold text-slate-800">₹{(r.cashPaise / 100).toFixed(2)}</td>
                           <td className="py-3 px-3 font-semibold text-blue-700">₹{(r.upiPaise / 100).toFixed(2)}</td>
@@ -1632,7 +1840,14 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                       <tr className="border-t-2 border-slate-300 bg-emerald-50/60 font-black text-slate-900">
                         <td className="py-3 px-3 uppercase">Grand Total</td>
                         <td className="py-3 px-3">{dailySaleData.reduce((s, r) => s + r.ticketsCount, 0)}</td>
-                        <td className="py-3 px-3">{dailySaleData.reduce((s, r) => s + r.passesCount, 0)}</td>
+                        <td className="py-3 px-3">
+                          <div className="font-bold">{dailySaleData.reduce((s, r) => s + r.passesCount, 0)}</div>
+                          {dailySaleData.reduce((s, r) => s + r.passesCount, 0) > 0 && (
+                            <div className="text-[10px] text-slate-500 font-normal mt-0.5">
+                              (1M: {dailySaleData.reduce((s, r) => s + r.passes1mCount, 0)}, 2M: {dailySaleData.reduce((s, r) => s + r.passes2mCount, 0)}, 3M: {dailySaleData.reduce((s, r) => s + r.passes3mCount, 0)})
+                            </div>
+                          )}
+                        </td>
                         <td className="py-3 px-3 text-emerald-800">{dailySaleData.reduce((s, r) => s + r.personsCount, 0)} Persons</td>
                         <td className="py-3 px-3">₹{(dailySaleData.reduce((s, r) => s + r.cashPaise, 0) / 100).toFixed(2)}</td>
                         <td className="py-3 px-3 text-blue-700">₹{(dailySaleData.reduce((s, r) => s + r.upiPaise, 0) / 100).toFixed(2)}</td>
@@ -1673,7 +1888,33 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                         <tr key={r.monthKey} className="hover:bg-slate-50 transition">
                           <td className="py-3 px-3 font-bold text-slate-900">{r.monthName}</td>
                           <td className="py-3 px-3 text-slate-700">{r.ticketsCount}</td>
-                          <td className="py-3 px-3 text-slate-700">{r.passesCount}</td>
+                          <td className="py-3 px-3 text-slate-700">
+                            <div className="font-bold text-slate-900">{r.passesCount}</div>
+                            {r.passesCount > 0 && (
+                              <div className="flex flex-wrap items-center gap-1 mt-0.5 text-[9px] font-bold">
+                                {r.passes1mCount > 0 && (
+                                  <span className="px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 border border-emerald-200" title="1 Month Passes">
+                                    1M:{r.passes1mCount}
+                                  </span>
+                                )}
+                                {r.passes2mCount > 0 && (
+                                  <span className="px-1.5 py-0.2 rounded bg-blue-50 text-blue-800 border border-blue-200" title="2 Months Passes">
+                                    2M:{r.passes2mCount}
+                                  </span>
+                                )}
+                                {r.passes3mCount > 0 && (
+                                  <span className="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-800 border border-indigo-200" title="3 Months Passes">
+                                    3M:{r.passes3mCount}
+                                  </span>
+                                )}
+                                {r.passesYearlyCount > 0 && (
+                                  <span className="px-1.5 py-0.2 rounded bg-purple-50 text-purple-800 border border-purple-200" title="Yearly Passes">
+                                    1Y:{r.passesYearlyCount}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </td>
                           <td className="py-3 px-3 font-bold text-emerald-800">{r.personsCount} Persons</td>
                           <td className="py-3 px-3 font-semibold text-slate-800">₹{(r.cashPaise / 100).toFixed(2)}</td>
                           <td className="py-3 px-3 font-semibold text-blue-700">₹{(r.upiPaise / 100).toFixed(2)}</td>
@@ -1687,7 +1928,14 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                       <tr className="border-t-2 border-slate-300 bg-emerald-50/60 font-black text-slate-900">
                         <td className="py-3 px-3 uppercase">Grand Total</td>
                         <td className="py-3 px-3">{monthlySaleData.reduce((s, r) => s + r.ticketsCount, 0)}</td>
-                        <td className="py-3 px-3">{monthlySaleData.reduce((s, r) => s + r.passesCount, 0)}</td>
+                        <td className="py-3 px-3">
+                          <div className="font-bold">{monthlySaleData.reduce((s, r) => s + r.passesCount, 0)}</div>
+                          {monthlySaleData.reduce((s, r) => s + r.passesCount, 0) > 0 && (
+                            <div className="text-[10px] text-slate-500 font-normal mt-0.5">
+                              (1M: {monthlySaleData.reduce((s, r) => s + r.passes1mCount, 0)}, 2M: {monthlySaleData.reduce((s, r) => s + r.passes2mCount, 0)}, 3M: {monthlySaleData.reduce((s, r) => s + r.passes3mCount, 0)})
+                            </div>
+                          )}
+                        </td>
                         <td className="py-3 px-3 text-emerald-800">{monthlySaleData.reduce((s, r) => s + r.personsCount, 0)} Persons</td>
                         <td className="py-3 px-3">₹{(monthlySaleData.reduce((s, r) => s + r.cashPaise, 0) / 100).toFixed(2)}</td>
                         <td className="py-3 px-3 text-blue-700">₹{(monthlySaleData.reduce((s, r) => s + r.upiPaise, 0) / 100).toFixed(2)}</td>
@@ -1867,75 +2115,277 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
 
             {/* 5. MONTHLY SUBSCRIPTION GENERATE PASS REPORT TABLE */}
             {selectedReport === 'monthly-generate-pass' && (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-600 uppercase font-bold">
-                      <th className="py-3 px-3">Issue Time (IST)</th>
-                      <th className="py-3 px-3">System / Device</th>
-                      <th className="py-3 px-3">Pass Number</th>
-                      <th className="py-3 px-3">Holder Name</th>
-                      <th className="py-3 px-3">Phone</th>
-                      <th className="py-3 px-3">Allowed</th>
-                      <th className="py-3 px-3">Valid Period</th>
-                      <th className="py-3 px-3">Pay Mode</th>
-                      <th className="py-3 px-3">Amount (₹)</th>
-                      <th className="py-3 px-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {monthlyGeneratePassData.length === 0 ? (
-                      <tr>
-                        <td colSpan={10} className="py-10 text-center text-slate-400">
-                          No monthly subscription passes generated in the selected period.
-                        </td>
+              <div className="space-y-4">
+                {/* Executive Breakdown KPI Cards for Monthly Passes */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Card 1: Total Monthly */}
+                  <div className="bg-gradient-to-br from-slate-50 to-white border border-slate-200 p-3.5 rounded-2xl shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">All Monthly Passes</span>
+                      <span className="p-1.5 rounded-lg bg-slate-100 text-slate-700">
+                        <CreditCard className="w-3.5 h-3.5" />
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-baseline justify-between">
+                      <span className="text-xl font-black text-slate-900">
+                        {monthlyPassBreakdown.totalCount} <span className="text-xs font-bold text-slate-500">Passes</span>
+                      </span>
+                      <span className="text-sm font-black text-slate-800">
+                        ₹{(monthlyPassBreakdown.totalRevPaise / 100).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-400 font-medium mt-0.5">Total monthly subscription volume</div>
+                  </div>
+
+                  {/* Card 2: 1 Month Pass */}
+                  <div 
+                    onClick={() => setMonthlyDurationFilter(monthlyDurationFilter === '1_MONTH' ? 'ALL' : '1_MONTH')}
+                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
+                      monthlyDurationFilter === '1_MONTH'
+                        ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-500/30 shadow-sm'
+                        : 'bg-gradient-to-br from-emerald-50/40 to-white border-emerald-200 hover:border-emerald-300 shadow-xs'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800">
+                        1 Month Pass (₹{ratesForm.monthly_pass_1m_inr || 300})
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        30 DAYS
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-baseline justify-between">
+                      <span className="text-xl font-black text-emerald-950">
+                        {monthlyPassBreakdown.m1.count} <span className="text-xs font-bold text-emerald-700">Passes</span>
+                      </span>
+                      <span className="text-sm font-black text-emerald-800">
+                        ₹{(monthlyPassBreakdown.m1.revPaise / 100).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-emerald-700/80 font-bold mt-0.5">
+                      {monthlyPassBreakdown.totalCount > 0 ? Math.round((monthlyPassBreakdown.m1.count / monthlyPassBreakdown.totalCount) * 100) : 0}% of monthly sales
+                    </div>
+                  </div>
+
+                  {/* Card 3: 2 Months Pass */}
+                  <div 
+                    onClick={() => setMonthlyDurationFilter(monthlyDurationFilter === '2_MONTHS' ? 'ALL' : '2_MONTHS')}
+                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
+                      monthlyDurationFilter === '2_MONTHS'
+                        ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-500/30 shadow-sm'
+                        : 'bg-gradient-to-br from-blue-50/40 to-white border-blue-200 hover:border-blue-300 shadow-xs'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-blue-800">
+                        2 Months Pass (₹{ratesForm.monthly_pass_2m_inr || 600})
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-blue-100 text-blue-800 border border-blue-300">
+                        60 DAYS
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-baseline justify-between">
+                      <span className="text-xl font-black text-blue-950">
+                        {monthlyPassBreakdown.m2.count} <span className="text-xs font-bold text-blue-700">Passes</span>
+                      </span>
+                      <span className="text-sm font-black text-blue-800">
+                        ₹{(monthlyPassBreakdown.m2.revPaise / 100).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-blue-700/80 font-bold mt-0.5">
+                      {monthlyPassBreakdown.totalCount > 0 ? Math.round((monthlyPassBreakdown.m2.count / monthlyPassBreakdown.totalCount) * 100) : 0}% of monthly sales
+                    </div>
+                  </div>
+
+                  {/* Card 4: 3 Months Pass */}
+                  <div 
+                    onClick={() => setMonthlyDurationFilter(monthlyDurationFilter === '3_MONTHS' ? 'ALL' : '3_MONTHS')}
+                    className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
+                      monthlyDurationFilter === '3_MONTHS'
+                        ? 'bg-indigo-50 border-indigo-400 ring-2 ring-indigo-500/30 shadow-sm'
+                        : 'bg-gradient-to-br from-indigo-50/40 to-white border-indigo-200 hover:border-indigo-300 shadow-xs'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-indigo-800">
+                        3 Months Pass (₹{ratesForm.monthly_pass_3m_inr || 900})
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-indigo-100 text-indigo-800 border border-indigo-300">
+                        90 DAYS
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-baseline justify-between">
+                      <span className="text-xl font-black text-indigo-950">
+                        {monthlyPassBreakdown.m3.count} <span className="text-xs font-bold text-indigo-700">Passes</span>
+                      </span>
+                      <span className="text-sm font-black text-indigo-800">
+                        ₹{(monthlyPassBreakdown.m3.revPaise / 100).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-indigo-700/80 font-bold mt-0.5">
+                      {monthlyPassBreakdown.totalCount > 0 ? Math.round((monthlyPassBreakdown.m3.count / monthlyPassBreakdown.totalCount) * 100) : 0}% of monthly sales
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sub-Filter Controls for Pass Duration */}
+                <div className="flex flex-wrap items-center justify-between gap-2.5 bg-slate-50/80 p-3 rounded-2xl border border-slate-200">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-black text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                      <CreditCard className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Filter Duration:</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setMonthlyDurationFilter('ALL')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
+                        monthlyDurationFilter === 'ALL'
+                          ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      All Durations ({monthlyPassBreakdown.totalCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMonthlyDurationFilter('1_MONTH')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
+                        monthlyDurationFilter === '1_MONTH'
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                          : 'bg-white text-emerald-800 border-emerald-200 hover:bg-emerald-50'
+                      }`}
+                    >
+                      1 Month - 30 Days ({monthlyPassBreakdown.m1.count})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMonthlyDurationFilter('2_MONTHS')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
+                        monthlyDurationFilter === '2_MONTHS'
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                          : 'bg-white text-blue-800 border-blue-200 hover:bg-blue-50'
+                      }`}
+                    >
+                      2 Months - 60 Days ({monthlyPassBreakdown.m2.count})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMonthlyDurationFilter('3_MONTHS')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border cursor-pointer ${
+                        monthlyDurationFilter === '3_MONTHS'
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                          : 'bg-white text-indigo-800 border-indigo-200 hover:bg-indigo-50'
+                      }`}
+                    >
+                      3 Months - 90 Days ({monthlyPassBreakdown.m3.count})
+                    </button>
+                  </div>
+
+                  {monthlyDurationFilter !== 'ALL' && (
+                    <button
+                      type="button"
+                      onClick={() => setMonthlyDurationFilter('ALL')}
+                      className="text-xs text-emerald-700 hover:text-emerald-900 font-bold underline cursor-pointer"
+                    >
+                      Show All Durations
+                    </button>
+                  )}
+                </div>
+
+                {/* Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-600 uppercase font-bold">
+                        <th className="py-3 px-3">Issue Time (IST)</th>
+                        <th className="py-3 px-3">System / Device</th>
+                        <th className="py-3 px-3">Pass Number</th>
+                        <th className="py-3 px-3">Plan Duration</th>
+                        <th className="py-3 px-3">Holder Name</th>
+                        <th className="py-3 px-3">Phone</th>
+                        <th className="py-3 px-3">Allowed</th>
+                        <th className="py-3 px-3">Valid Period</th>
+                        <th className="py-3 px-3">Pay Mode</th>
+                        <th className="py-3 px-3">Amount (₹)</th>
+                        <th className="py-3 px-3">Status</th>
                       </tr>
-                    ) : (
-                      monthlyGeneratePassData.map(ps => (
-                        <tr key={ps.id} className="hover:bg-slate-50 transition">
-                          <td className="py-3 px-3 font-mono text-slate-600">
-                            {new Date(ps.created_at).toLocaleString('en-IN')}
-                          </td>
-                          <td className="py-3 px-3">
-                            {renderDeviceBadge(ps.device_name)}
-                          </td>
-                          <td className="py-3 px-3 font-mono font-bold text-purple-900">{ps.pass_number}</td>
-                          <td className="py-3 px-3 font-bold text-slate-900">{ps.holder_name}</td>
-                          <td className="py-3 px-3 text-slate-600">{ps.holder_phone || '—'}</td>
-                          <td className="py-3 px-3 font-bold text-slate-800">{ps.people_allowed} Person</td>
-                          <td className="py-3 px-3 text-slate-600 font-mono text-[11px]">
-                            {ps.valid_from} → {ps.valid_through}
-                          </td>
-                          <td className="py-3 px-3">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800">
-                              {ps.payment_method || 'CASH'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 font-black text-slate-900">
-                            ₹{((ps.amount_paise || 30000) / 100).toFixed(2)}
-                          </td>
-                          <td className="py-3 px-3">
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                              {ps.status}
-                            </span>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {monthlyGeneratePassData.length === 0 ? (
+                        <tr>
+                          <td colSpan={11} className="py-10 text-center text-slate-400">
+                            No monthly subscription passes found matching the current filter.
                           </td>
                         </tr>
-                      ))
+                      ) : (
+                        monthlyGeneratePassData.map(ps => {
+                          const dInfo = getPassDurationCategory(ps);
+                          return (
+                            <tr key={ps.id} className="hover:bg-slate-50 transition">
+                              <td className="py-3 px-3 font-mono text-slate-600">
+                                {new Date(ps.created_at).toLocaleString('en-IN')}
+                              </td>
+                              <td className="py-3 px-3">
+                                {renderDeviceBadge(ps.device_name)}
+                              </td>
+                              <td className="py-3 px-3 font-mono font-bold text-purple-900">{ps.pass_number}</td>
+                              <td className="py-3 px-3">
+                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black tracking-wide border inline-flex items-center gap-1 ${
+                                  dInfo.category === '3_MONTHS'
+                                    ? 'bg-indigo-100/90 text-indigo-900 border-indigo-300'
+                                    : dInfo.category === '2_MONTHS'
+                                    ? 'bg-blue-100/90 text-blue-900 border-blue-300'
+                                    : 'bg-emerald-100/90 text-emerald-900 border-emerald-300'
+                                }`}>
+                                  <Calendar className="w-3 h-3 opacity-70" />
+                                  <span>{dInfo.label}</span>
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 font-bold text-slate-900">{ps.holder_name}</td>
+                              <td className="py-3 px-3 text-slate-600">{ps.holder_phone || '—'}</td>
+                              <td className="py-3 px-3 font-bold text-slate-800">{ps.people_allowed} Person</td>
+                              <td className="py-3 px-3 text-slate-600 font-mono text-[11px]">
+                                {ps.valid_from} → {ps.valid_through}
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-800">
+                                  {ps.payment_method || 'CASH'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 font-black text-slate-900">
+                                ₹{((ps.amount_paise || (dInfo.expectedRateInr * 100)) / 100).toFixed(2)}
+                              </td>
+                              <td className="py-3 px-3">
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                  {ps.status}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                    {monthlyGeneratePassData.length > 0 && (
+                      <tfoot>
+                        <tr className="border-t-2 border-slate-300 bg-purple-50/60 font-black text-slate-900">
+                          <td className="py-3 px-3 uppercase" colSpan={4}>
+                            Total Passes: {monthlyGeneratePassData.length}
+                            {monthlyDurationFilter === 'ALL' && (
+                              <span className="ml-2 font-normal text-slate-600 text-[11px]">
+                                (1-Mo: {monthlyPassBreakdown.m1.count} | 2-Mo: {monthlyPassBreakdown.m2.count} | 3-Mo: {monthlyPassBreakdown.m3.count})
+                              </span>
+                            )}
+                          </td>
+                          <td colSpan={5}></td>
+                          <td className="py-3 px-3 text-purple-900 text-sm">
+                            ₹{(monthlyGeneratePassData.reduce((s, p) => s + (p.amount_paise || (getPassDurationCategory(p).expectedRateInr * 100)), 0) / 100).toFixed(2)}
+                          </td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
                     )}
-                  </tbody>
-                  {monthlyGeneratePassData.length > 0 && (
-                    <tfoot>
-                      <tr className="border-t-2 border-slate-300 bg-purple-50/60 font-black text-slate-900">
-                        <td className="py-3 px-3 uppercase">Total Passes: {monthlyGeneratePassData.length}</td>
-                        <td colSpan={7}></td>
-                        <td className="py-3 px-3 text-purple-900 text-sm">
-                          ₹{(monthlyGeneratePassData.reduce((s, p) => s + (p.amount_paise || 30000), 0) / 100).toFixed(2)}
-                        </td>
-                        <td></td>
-                      </tr>
-                    </tfoot>
-                  )}
-                </table>
+                  </table>
+                </div>
               </div>
             )}
 
@@ -1948,6 +2398,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                       <th className="py-3 px-3">Issue Time (IST)</th>
                       <th className="py-3 px-3">System / Device</th>
                       <th className="py-3 px-3">Pass Number</th>
+                      <th className="py-3 px-3">Plan Duration</th>
                       <th className="py-3 px-3">Holder Name</th>
                       <th className="py-3 px-3">Phone</th>
                       <th className="py-3 px-3">Allowed Members</th>
@@ -1960,7 +2411,7 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                   <tbody className="divide-y divide-slate-100">
                     {yearlyGeneratePassData.length === 0 ? (
                       <tr>
-                        <td colSpan={10} className="py-10 text-center text-slate-400">
+                        <td colSpan={11} className="py-10 text-center text-slate-400">
                           No yearly subscription passes generated in the selected period.
                         </td>
                       </tr>
@@ -1974,6 +2425,12 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                             {renderDeviceBadge(ps.device_name)}
                           </td>
                           <td className="py-3 px-3 font-mono font-bold text-purple-900">{ps.pass_number}</td>
+                          <td className="py-3 px-3">
+                            <span className="px-2.5 py-1 rounded-lg text-[10px] font-black tracking-wide border inline-flex items-center gap-1 bg-purple-100/90 text-purple-900 border-purple-300">
+                              <Calendar className="w-3 h-3 opacity-70" />
+                              <span>1 Year (365 Days)</span>
+                            </span>
+                          </td>
                           <td className="py-3 px-3 font-bold text-slate-900">{ps.holder_name}</td>
                           <td className="py-3 px-3 text-slate-600">{ps.holder_phone || '—'}</td>
                           <td className="py-3 px-3 font-bold text-purple-800">{ps.people_allowed} Person</td>
@@ -2000,8 +2457,8 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
                   {yearlyGeneratePassData.length > 0 && (
                     <tfoot>
                       <tr className="border-t-2 border-slate-300 bg-purple-50/60 font-black text-slate-900">
-                        <td className="py-3 px-3 uppercase">Total Passes: {yearlyGeneratePassData.length}</td>
-                        <td colSpan={7}></td>
+                        <td className="py-3 px-3 uppercase" colSpan={4}>Total Passes: {yearlyGeneratePassData.length}</td>
+                        <td colSpan={5}></td>
                         <td className="py-3 px-3 text-purple-900 text-sm">
                           ₹{(yearlyGeneratePassData.reduce((s, p) => s + (p.amount_paise || 310000), 0) / 100).toFixed(2)}
                         </td>
@@ -3699,36 +4156,64 @@ export const LogsDashboard: React.FC<LogsDashboardProps> = ({ config, onTicketGe
         )}
 
         {(selectedReport === 'monthly-generate-pass' || selectedReport === 'yearly-generate-pass') && (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f1f5f9' }}>
-                <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Issue Time (IST)</th>
-                <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Pass Number</th>
-                <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Holder Name</th>
-                <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Phone</th>
-                <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Allowed</th>
-                <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Validity</th>
-                <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Mode</th>
-                <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'right' }}>Amount (₹)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(selectedReport === 'monthly-generate-pass' ? monthlyGeneratePassData : yearlyGeneratePassData).map(ps => (
-                <tr key={ps.id}>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{new Date(ps.created_at).toLocaleString('en-IN')}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{ps.pass_number}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{ps.holder_name}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{ps.holder_phone || '—'}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{ps.people_allowed}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{ps.valid_from} to {ps.valid_through}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{ps.payment_method || 'CASH'}</td>
-                  <td style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'right' }}>
-                    ₹{((ps.amount_paise || (ps.pass_type === 'YEARLY' ? 310000 : 30000)) / 100).toFixed(2)}
-                  </td>
+          <div>
+            {selectedReport === 'monthly-generate-pass' && (
+              <div style={{ marginBottom: '12px', padding: '10px', backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '11px' }}>
+                <div style={{ fontWeight: 'bold', marginBottom: '6px', textTransform: 'uppercase', color: '#0f172a' }}>
+                  Official Monthly Subscription Pass Sales Summary ({monthlyPassBreakdown.totalCount} Total Issued):
+                </div>
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <span style={{ padding: '3px 8px', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '4px' }}>
+                    <strong>1 Month Pass (₹{ratesForm.monthly_pass_1m_inr || 300}):</strong> {monthlyPassBreakdown.m1.count} Sold (₹{(monthlyPassBreakdown.m1.revPaise / 100).toFixed(2)})
+                  </span>
+                  <span style={{ padding: '3px 8px', backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '4px' }}>
+                    <strong>2 Months Pass (₹{ratesForm.monthly_pass_2m_inr || 600}):</strong> {monthlyPassBreakdown.m2.count} Sold (₹{(monthlyPassBreakdown.m2.revPaise / 100).toFixed(2)})
+                  </span>
+                  <span style={{ padding: '3px 8px', backgroundColor: '#eef2ff', border: '1px solid #c7d2fe', borderRadius: '4px' }}>
+                    <strong>3 Months Pass (₹{ratesForm.monthly_pass_3m_inr || 900}):</strong> {monthlyPassBreakdown.m3.count} Sold (₹{(monthlyPassBreakdown.m3.revPaise / 100).toFixed(2)})
+                  </span>
+                  <span style={{ padding: '3px 8px', backgroundColor: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', marginLeft: 'auto', fontWeight: 'bold' }}>
+                    Total Revenue: ₹{(monthlyPassBreakdown.totalRevPaise / 100).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            )}
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f1f5f9' }}>
+                  <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Issue Time (IST)</th>
+                  <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Pass Number</th>
+                  <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Plan Duration</th>
+                  <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Holder Name</th>
+                  <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Phone</th>
+                  <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Allowed</th>
+                  <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Validity</th>
+                  <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'left' }}>Mode</th>
+                  <th style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'right' }}>Amount (₹)</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {(selectedReport === 'monthly-generate-pass' ? monthlyGeneratePassData : yearlyGeneratePassData).map(ps => {
+                  const dInfo = getPassDurationCategory(ps);
+                  return (
+                    <tr key={ps.id}>
+                      <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{new Date(ps.created_at).toLocaleString('en-IN')}</td>
+                      <td style={{ border: '1px solid #cbd5e1', padding: '6px', fontWeight: 'bold' }}>{ps.pass_number}</td>
+                      <td style={{ border: '1px solid #cbd5e1', padding: '6px', fontWeight: 'bold' }}>{dInfo.label}</td>
+                      <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{ps.holder_name}</td>
+                      <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{ps.holder_phone || '—'}</td>
+                      <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{ps.people_allowed} Person</td>
+                      <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{ps.valid_from} to {ps.valid_through}</td>
+                      <td style={{ border: '1px solid #cbd5e1', padding: '6px' }}>{ps.payment_method || 'CASH'}</td>
+                      <td style={{ border: '1px solid #cbd5e1', padding: '6px', textAlign: 'right' }}>
+                        ₹{((ps.amount_paise || (ps.pass_type === 'YEARLY' ? 310000 : (dInfo.expectedRateInr * 100))) / 100).toFixed(2)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
 
         {(selectedReport === 'monthly-scan-pass' || selectedReport === 'yearly-scan-pass') && (
