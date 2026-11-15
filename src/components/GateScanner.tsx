@@ -3,7 +3,21 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { dbService } from '../lib/supabase';
 import { sounds } from '../lib/audio';
 import type { VerificationResponse, AppConfig } from '../types';
-import { Camera, CheckCircle2, XCircle, AlertTriangle, Users, Volume2, ShieldCheck, RefreshCw, Upload, Lock, QrCode, Clock } from 'lucide-react';
+import {
+  Camera,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Users,
+  Volume2,
+  ShieldCheck,
+  RefreshCw,
+  Upload,
+  Lock,
+  QrCode,
+  Clock,
+  Sparkles
+} from 'lucide-react';
 import { LOGO_URL } from '../assets/logo';
 
 interface GateScannerProps {
@@ -366,41 +380,50 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-2.5 sm:p-4 space-y-3.5 sm:space-y-5">
-      {/* Header Info Banner */}
-      <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <img
-            src={LOGO_URL}
-            alt="Logo"
-            className="w-11 h-11 sm:w-12 sm:h-12 object-contain rounded-xl border border-emerald-100 p-0.5 bg-emerald-50/50"
-          />
+    <div className="max-w-2xl mx-auto p-2.5 sm:p-4 space-y-4 sm:space-y-6">
+      {/* Header Info Banner with Glassmorphism */}
+      <div className="bg-gradient-to-br from-white via-white to-emerald-50/50 border border-white/70 rounded-3xl p-4 sm:p-5 shadow-xl shadow-emerald-950/20 backdrop-blur-xl flex flex-col sm:flex-row items-center justify-between gap-3.5">
+        <div className="flex items-center gap-3.5">
+          <div className="relative group shrink-0">
+            <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl blur-xs opacity-70 group-hover:opacity-100 transition" />
+            <img
+              src={LOGO_URL}
+              alt="Logo"
+              className="relative w-12 h-12 object-contain rounded-2xl border border-white/80 p-1 bg-white shadow-xs"
+            />
+          </div>
           <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[10px] sm:text-[11px] font-bold">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Gate Scanner • {config.gate_code}
+            <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-emerald-100/80 border border-emerald-200/60 text-emerald-900 text-[10px] sm:text-xs font-black uppercase tracking-wider mb-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Gate Scanner • {config.gate_code}</span>
             </div>
-            <h1 className="text-lg sm:text-xl font-black text-slate-900">{config.park_settings.park_name}</h1>
-            <p className="text-[11px] sm:text-xs text-slate-500">{config.park_settings.organization_name}</p>
+            <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+              <span>{config.park_settings.park_name}</span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            </h1>
+            <p className="text-[11px] text-slate-500 font-medium">{config.park_settings.organization_name}</p>
           </div>
         </div>
 
-        <div className="bg-slate-50 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl sm:rounded-2xl border border-slate-200 text-xs font-bold text-slate-700">
-          Active Gate: <span className="text-emerald-700">{config.gate_name}</span>
+        <div className="bg-slate-100/90 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-200/80 text-xs font-black text-slate-700 flex items-center gap-2 shadow-2xs">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+          <span>Active Gate: <strong className="text-emerald-800">{config.gate_name}</strong></span>
         </div>
       </div>
 
-      {/* Main Verification Result Card */}
+      {/* Main Verification Result Card (Dynamic Success/Denial) */}
       {verificationResult && (
         <div
-          className={`p-4 sm:p-6 rounded-2xl sm:rounded-3xl border-2 shadow-2xl transition-all duration-300 animate-in fade-in slide-in-from-top-4 space-y-3.5 sm:space-y-4 ${
+          className={`p-5 sm:p-7 rounded-3xl border-2 shadow-2xl transition-all duration-300 animate-in fade-in slide-in-from-top-4 space-y-4 ${
             verificationResult.success
-              ? 'bg-gradient-to-br from-emerald-600 via-green-600 to-emerald-700 text-white border-emerald-400 shadow-emerald-600/30'
-              : 'bg-gradient-to-br from-red-600 via-rose-600 to-red-700 text-white border-red-400 shadow-red-600/30'
+              ? 'bg-gradient-to-br from-emerald-600 via-green-600 to-emerald-700 text-white border-emerald-400/80 shadow-emerald-900/40 ring-4 ring-emerald-500/20'
+              : 'bg-gradient-to-br from-red-600 via-rose-600 to-red-700 text-white border-red-400/80 shadow-red-900/40 ring-4 ring-red-500/20'
           }`}
         >
           {/* Card Top Control Row: Status Pill on left, Close button on right */}
           <div className="flex items-center justify-between gap-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-white/20 backdrop-blur-sm">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-white/20 backdrop-blur-md border border-white/30">
               {verificationResult.success ? (
                 <>
                   <CheckCircle2 className="w-4 h-4 text-emerald-100" />
@@ -426,27 +449,27 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
 
           {/* SUCCESS VIEW */}
           {verificationResult.success ? (
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               {/* Highlight Hero Card: Visitors Count */}
-              <div className="bg-white text-emerald-950 rounded-2xl p-3.5 sm:p-4 shadow-lg">
+              <div className="bg-white text-emerald-950 rounded-2xl p-4 sm:p-5 shadow-xl border border-white/80">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-                      <Users className="w-7 h-7 stroke-[2.5]" />
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-600/30">
+                      <Users className="w-8 h-8 stroke-[2.5]" />
                     </div>
                     <div>
-                      <div className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-emerald-700 leading-tight">
+                      <div className="text-[11px] font-black uppercase tracking-wider text-emerald-700 leading-tight">
                         Allowed Visitor Entry
                       </div>
-                      <div className="text-2xl sm:text-4xl font-black text-slate-900 leading-none mt-1 whitespace-nowrap">
+                      <div className="text-3xl sm:text-4xl font-black text-slate-900 leading-none mt-1 whitespace-nowrap">
                         {verificationResult.persons_admitted || 1} {((verificationResult.persons_admitted || 1) > 1) ? 'PERSONS' : 'PERSON'}
                       </div>
                     </div>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <div className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full text-xs font-black">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    <div className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-full text-xs font-black border border-emerald-200">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                       <span>ADMITTED</span>
                     </div>
                   </div>
@@ -454,27 +477,27 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
 
                 {/* Pass Holder Name if present */}
                 {verificationResult.holder_name && (
-                  <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
                     <span className="text-slate-500 font-semibold">Pass Holder:</span>
-                    <span className="font-bold text-slate-900 truncate max-w-[200px]">
+                    <span className="font-black text-slate-900 truncate max-w-[200px]">
                       {verificationResult.holder_name}
                     </span>
                   </div>
                 )}
               </div>
 
-              {/* Grid of Ticket Details: Dates, Times, Amount, Plan, Payment Mode */}
-              <div className="bg-black/30 backdrop-blur-md rounded-2xl p-3.5 sm:p-4 border border-white/20 text-xs text-white space-y-2 shadow-inner">
+              {/* Grid of Ticket Details */}
+              <div className="bg-black/30 backdrop-blur-md rounded-2xl p-4 border border-white/20 text-xs text-white space-y-2 shadow-inner">
                 <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-white/15">
-                  <span className="text-white/70 text-[11px] sm:text-xs shrink-0">Document Number:</span>
-                  <span className="font-mono font-bold text-white text-xs sm:text-sm tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
+                  <span className="text-white/70 text-[11px] sm:text-xs shrink-0 font-medium">Document Number:</span>
+                  <span className="font-mono font-black text-white text-xs sm:text-sm tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">
                     {verificationResult.ticket_number || verificationResult.pass_number}
                   </span>
                 </div>
 
                 {verificationResult.plan_name && (
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-white/70 text-[11px] sm:text-xs shrink-0">Ticket / Pass Plan:</span>
+                    <span className="text-white/70 text-[11px] sm:text-xs shrink-0 font-medium">Ticket / Pass Plan:</span>
                     <span className="font-bold text-white text-xs sm:text-sm truncate">
                       {verificationResult.plan_name}
                     </span>
@@ -483,7 +506,7 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
 
                 {verificationResult.issued_at && (
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-white/70 text-[11px] sm:text-xs shrink-0">Date & Time Issued:</span>
+                    <span className="text-white/70 text-[11px] sm:text-xs shrink-0 font-medium">Date & Time Issued:</span>
                     <span className="font-mono font-medium text-white/95 text-xs tracking-tight whitespace-nowrap">
                       {formatCleanDateTime(verificationResult.issued_at)}
                     </span>
@@ -492,7 +515,7 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
 
                 {verificationResult.scanned_at && (
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-white/70 text-[11px] sm:text-xs shrink-0">Date & Time Scanned:</span>
+                    <span className="text-white/70 text-[11px] sm:text-xs shrink-0 font-medium">Date & Time Scanned:</span>
                     <span className="font-mono font-bold text-emerald-300 text-xs tracking-tight whitespace-nowrap">
                       {formatCleanDateTime(verificationResult.scanned_at)}
                     </span>
@@ -500,7 +523,7 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
                 )}
 
                 <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/15">
-                  <span className="text-white/70 text-[11px] sm:text-xs shrink-0">Payment Mode:</span>
+                  <span className="text-white/70 text-[11px] sm:text-xs shrink-0 font-medium">Payment Mode:</span>
                   <span className="font-bold px-2 py-0.5 rounded bg-white/20 text-white uppercase text-[11px] tracking-wider">
                     {verificationResult.payment_method || 'CASH'}
                   </span>
@@ -508,7 +531,7 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
 
                 {verificationResult.amount_inr && (
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-white/70 text-[11px] sm:text-xs shrink-0">Total Amount:</span>
+                    <span className="text-white/70 text-[11px] sm:text-xs shrink-0 font-medium">Total Amount:</span>
                     <span className="font-black text-emerald-300 text-sm">₹{verificationResult.amount_inr}</span>
                   </div>
                 )}
@@ -519,9 +542,9 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
             (() => {
               const denial = parseDenialDetails(verificationResult);
               return (
-                <div className="bg-white text-red-950 rounded-2xl p-4 sm:p-5 shadow-lg text-center space-y-2">
-                  <div className="w-12 h-12 mx-auto rounded-2xl bg-red-100 text-red-600 flex items-center justify-center">
-                    <XCircle className="w-8 h-8 stroke-[2.5]" />
+                <div className="bg-white text-red-950 rounded-2xl p-5 shadow-xl border border-white/80 text-center space-y-2.5">
+                  <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-red-500 to-rose-600 text-white flex items-center justify-center shadow-md shadow-red-600/30">
+                    <XCircle className="w-9 h-9 stroke-[2.5]" />
                   </div>
 
                   {/* Line 1: Ticket Already Expired ! */}
@@ -538,7 +561,7 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
 
                   {/* Line 3: Date & Time */}
                   {denial.line3 && (
-                    <div className="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-800 font-mono text-xs sm:text-sm font-black text-amber-300 shadow-inner max-w-full">
+                    <div className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs sm:text-sm font-black text-amber-300 shadow-inner max-w-full">
                       <Clock className="w-4 h-4 text-amber-400 shrink-0" />
                       <span className="whitespace-nowrap">{formatCleanDateTime(denial.line3)}</span>
                     </div>
@@ -559,13 +582,13 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
             <button
               type="button"
               onClick={handleNextScan}
-              className={`w-full py-3.5 sm:py-4 px-6 font-black text-sm sm:text-base rounded-2xl shadow-2xl active:scale-95 transition flex items-center justify-center gap-2.5 cursor-pointer ring-4 ${
+              className={`w-full py-4 px-6 font-black text-sm sm:text-base rounded-2xl shadow-2xl active:scale-95 transition flex items-center justify-center gap-2.5 cursor-pointer ring-4 ${
                 verificationResult.success
                   ? 'bg-white hover:bg-emerald-50 text-emerald-950 ring-white/30'
                   : 'bg-white hover:bg-rose-50 text-red-950 ring-white/30'
               }`}
             >
-              <Camera className="w-5 h-5 shrink-0" />
+              <Camera className="w-5 h-5 shrink-0 text-emerald-700" />
               <span>NEXT SCAN (अगला टिकट स्कैन करें) ➔</span>
             </button>
 
@@ -577,45 +600,59 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
         </div>
       )}
 
-      {/* 1 Single Live Scan Report: Total Tickets Scanned & Admitted Persons */}
-      <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-3.5 sm:p-5 shadow-sm flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 sm:p-3 bg-emerald-50 text-emerald-700 rounded-xl sm:rounded-2xl border border-emerald-100 shrink-0">
-            <QrCode className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
+      {/* Aesthetic Live Scan Statistics Row (2 Rich Cards) */}
+      <div className="grid grid-cols-2 gap-3.5">
+        {/* Card 1: Tickets Scanned */}
+        <div className="bg-gradient-to-br from-white via-white to-emerald-50/50 border border-white/70 rounded-3xl p-4 sm:p-5 shadow-xl shadow-emerald-950/20 backdrop-blur-xl flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-600/30">
+            <QrCode className="w-6 h-6 stroke-[2.5]" />
           </div>
           <div>
-            <div className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Tickets Scanned Today
+            <div className="text-[10px] sm:text-[11px] font-black text-slate-500 uppercase tracking-wider">
+              Tickets Scanned
             </div>
-            <div className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5">
-              {scanSummary.totalScannedTickets} <span className="text-xs font-semibold text-slate-400">Tickets</span>
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-0.5 leading-none">
+              {scanSummary.totalScannedTickets}
+              <span className="text-xs font-bold text-slate-400 ml-1.5">Tkts</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-emerald-50 border border-emerald-200 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-right shrink-0">
-          <div className="text-[10px] sm:text-[11px] font-bold text-emerald-800 uppercase tracking-wide">
-            Admitted Visitors
+        {/* Card 2: Admitted Visitors */}
+        <div className="bg-gradient-to-br from-emerald-900 via-emerald-800 to-teal-900 border border-emerald-700/60 rounded-3xl p-4 sm:p-5 shadow-xl shadow-emerald-950/20 text-white flex items-center justify-between">
+          <div>
+            <div className="text-[10px] sm:text-[11px] font-black text-emerald-200 uppercase tracking-wider">
+              Admitted Visitors
+            </div>
+            <div className="text-2xl sm:text-3xl font-black text-white mt-0.5 leading-none">
+              {scanSummary.totalPersonsAdmitted}
+              <span className="text-xs font-bold text-emerald-300 ml-1.5">Persons</span>
+            </div>
           </div>
-          <div className="text-xl sm:text-2xl font-black text-emerald-700">
-            {scanSummary.totalPersonsAdmitted} <span className="text-xs font-bold text-emerald-800">Persons</span>
+          <div className="w-10 h-10 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
+            <Users className="w-5 h-5 text-emerald-300" />
           </div>
         </div>
       </div>
 
       {/* Camera Live Scanner Box (Optical QR Scan Only - Zero Manual Entry) */}
-      <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2">
-            <Camera className="w-5 h-5 text-emerald-600" />
-            <h2 className="font-bold text-slate-900 text-sm">Optical QR Scanner</h2>
+      <div className="bg-gradient-to-br from-white via-white to-slate-50/50 border border-white/70 rounded-3xl p-5 sm:p-7 shadow-xl shadow-emerald-950/20 backdrop-blur-xl space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-950/10 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+              <Camera className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="font-black text-slate-900 text-sm tracking-tight">Optical QR Scanner</h2>
+              <p className="text-[10px] text-slate-500 font-medium">Automatic ultra-fast barcode recognition</p>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="flex-1 sm:flex-initial px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200"
+              className="flex-1 sm:flex-initial px-3.5 py-2 bg-slate-100/90 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer border border-slate-200/80 shadow-2xs"
               title="Upload QR photo or screenshot"
             >
               <Upload className="w-3.5 h-3.5 text-slate-600" />
@@ -632,10 +669,10 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
             <button
               type="button"
               onClick={scannerActive ? stopScanner : startScanner}
-              className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 cursor-pointer shadow-sm ${
                 scannerActive
-                  ? 'bg-red-50 text-red-600 border border-red-200'
-                  : 'bg-emerald-600 text-white'
+                  ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                  : 'bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 text-white shadow-emerald-600/30'
               }`}
             >
               {scannerActive ? 'Pause Camera' : 'Start Camera'}
@@ -643,17 +680,17 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
           </div>
         </div>
 
-        {/* Camera Viewfinder */}
-        <div className="relative rounded-2xl overflow-hidden bg-slate-900 min-h-[340px] flex items-center justify-center border border-slate-800">
+        {/* Camera Viewfinder with Futuristic Border */}
+        <div className="relative rounded-3xl overflow-hidden bg-slate-950 min-h-[350px] flex items-center justify-center border-2 border-slate-800 shadow-2xl">
           <div id={scannerContainerId} className="w-full max-w-sm mx-auto"></div>
 
           {/* Software Lock Overlay - shown when ticket is scanned and waiting for user to click NEXT SCAN */}
           {isScanLocked && (
-            <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center text-white space-y-4 z-10 animate-in fade-in duration-200">
-              <div className={`p-4 rounded-2xl border ${
+            <div className="absolute inset-0 bg-slate-950/92 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white space-y-4 z-10 animate-in fade-in duration-200">
+              <div className={`p-4 rounded-3xl border shadow-xl ${
                 verificationResult?.success
-                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                  : 'bg-red-500/20 text-red-400 border-red-500/30'
+                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 shadow-emerald-500/20'
+                  : 'bg-red-500/20 text-red-400 border-red-500/40 shadow-red-500/20'
               }`}>
                 {verificationResult?.success ? (
                   <CheckCircle2 className="w-12 h-12" />
@@ -665,14 +702,14 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
                 <p className="text-base font-black text-white">
                   {verificationResult?.success ? 'Ticket Verified • Camera Paused' : 'Ticket Expired • Camera Paused'}
                 </p>
-                <p className="text-xs text-slate-300 mt-1 max-w-xs">
+                <p className="text-xs text-slate-300 mt-1 max-w-xs font-medium">
                   Review ticket details above. Tap below when ready to scan next ticket:
                 </p>
               </div>
               <button
                 type="button"
                 onClick={handleNextScan}
-                className="w-full max-w-xs py-3.5 px-6 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm rounded-2xl shadow-xl shadow-emerald-900/40 flex items-center justify-center gap-2.5 cursor-pointer transition active:scale-95"
+                className="w-full max-w-xs py-3.5 px-6 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm rounded-2xl shadow-xl shadow-emerald-900/50 flex items-center justify-center gap-2.5 cursor-pointer transition active:scale-95"
               >
                 <Camera className="w-5 h-5" />
                 <span>NEXT SCAN (OPEN CAMERA) ➔</span>
@@ -683,17 +720,17 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
           {/* Shown when camera is stopped manually and no scan is locked */}
           {!scannerActive && !isScanLocked && !cameraError && (
             <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center p-6 text-center text-white space-y-4">
-              <div className="p-4 bg-slate-800 text-slate-400 rounded-2xl border border-slate-700">
-                <Camera className="w-10 h-10" />
+              <div className="w-16 h-16 bg-slate-900 text-slate-400 rounded-3xl border border-slate-800 flex items-center justify-center shadow-inner">
+                <Camera className="w-8 h-8 opacity-70" />
               </div>
               <div>
-                <p className="text-sm font-bold text-white">Camera is Off</p>
-                <p className="text-xs text-slate-400 mt-1">Tap below to turn on the camera for scanning.</p>
+                <p className="text-sm font-black text-white">Camera is Off</p>
+                <p className="text-xs text-slate-400 mt-1 font-medium">Tap below to turn on the camera for scanning.</p>
               </div>
               <button
                 type="button"
                 onClick={startScanner}
-                className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-900/50 active:scale-95 transition"
+                className="px-6 py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 hover:from-emerald-500 hover:to-teal-500 text-white rounded-2xl text-xs font-black flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-900/50 active:scale-95 transition"
               >
                 <Camera className="w-4 h-4" /> Start Camera
               </button>
@@ -701,22 +738,24 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
           )}
 
           {cameraError && (
-            <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center p-6 text-center text-white space-y-3">
-              <AlertTriangle className="w-12 h-12 text-amber-400" />
+            <div className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center text-white space-y-3">
+              <div className="w-14 h-14 bg-amber-500/20 text-amber-400 rounded-2xl border border-amber-500/30 flex items-center justify-center">
+                <AlertTriangle className="w-8 h-8" />
+              </div>
               <div>
-                <p className="text-sm font-bold">Camera Access Notice</p>
+                <p className="text-sm font-black text-white">Camera Access Notice</p>
                 <p className="text-xs text-slate-300 max-w-sm mt-1">{cameraError}</p>
               </div>
               <div className="flex flex-wrap justify-center gap-2 pt-2">
                 <button
                   onClick={startScanner}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer shadow-sm"
                 >
                   <RefreshCw className="w-3.5 h-3.5" /> Retry Camera
                 </button>
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 cursor-pointer border border-slate-700"
                 >
                   <Upload className="w-3.5 h-3.5" /> Upload QR Image
                 </button>
@@ -726,14 +765,14 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
         </div>
 
         {/* Security Badge - No Manual Entry Allowed */}
-        <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
-          <div className="flex items-center gap-1.5 text-emerald-800 font-bold bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100">
-            <Lock className="w-3.5 h-3.5 text-emerald-600" />
+        <div className="pt-3 border-t border-emerald-950/10 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2 text-emerald-900 font-black bg-emerald-50 border border-emerald-200/80 px-3.5 py-1.5 rounded-xl">
+            <Lock className="w-3.5 h-3.5 text-emerald-700" />
             <span>Anti-Fraud Mode Active • Optical QR Scan Only</span>
           </div>
-          <div className="flex items-center gap-1 text-slate-600 font-semibold">
-            <Volume2 className="w-3.5 h-3.5 text-slate-400" />
-            <span>Sound alerts on scan</span>
+          <div className="flex items-center gap-1.5 text-slate-500 font-bold">
+            <Volume2 className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Sound alerts enabled</span>
           </div>
         </div>
       </div>
