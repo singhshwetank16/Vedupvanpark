@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { dbService } from '../lib/supabase';
 import { sounds } from '../lib/audio';
-import { BiometricScannerModal } from './BiometricScannerModal';
+import { biometricService } from '../lib/biometric';
+import { CameraModal } from './CameraModal';
 import type { VerificationResponse, AppConfig, Pass, PassMember } from '../types';
 import {
   Camera,
@@ -20,7 +21,11 @@ import {
   Phone,
   Search,
   Smartphone,
-  Fingerprint
+  Fingerprint,
+  UserCheck,
+  Check,
+  X,
+  AlertCircle
 } from 'lucide-react';
 import { LOGO_URL } from '../assets/logo';
 
@@ -31,7 +36,6 @@ interface GateScannerProps {
 // Clean helper to format date and time reliably into "DD-MMM-YYYY • HH:MM AM/PM"
 export const formatCleanDateTime = (val?: string | null): string => {
   if (!val) return '—';
-  // Try parsing standard date
   const d = new Date(val);
   if (!isNaN(d.getTime()) && val.includes('-') && (val.includes('T') || val.length > 20)) {
     const day = d.toLocaleDateString('en-IN', {
@@ -46,7 +50,6 @@ export const formatCleanDateTime = (val?: string | null): string => {
     });
     return `${day} • ${time}`;
   }
-  // If string already formatted like "13-Nov-2026, 12:46:19 AM" or "13-Nov-2026 12:46 AM"
   let clean = val.replace(/:\d{2}\s+(AM|PM)/i, ' $1');
   clean = clean.replace(/,\s*/g, ' • ');
   return clean.trim();
@@ -75,15 +78,31 @@ const parseDenialDetails = (result: VerificationResponse) => {
     return {
       line1: 'Cooldown Active !',
       line2: 'Last scanned at:',
-      line3: timeText || 'Scanned recently',
+      line3: timeText || 'Scanned recently (10-min cooldown)',
     };
   }
 
   if (result.code === 'EXPIRED') {
     return {
-      line1: 'Ticket Validity Expired !',
+      line1: 'Ticket / Pass Expired !',
       line2: 'Expired on:',
       line3: result.valid_through || 'Past expiration date',
+    };
+  }
+
+  if (result.code === 'BIOMETRIC_MISMATCH') {
+    return {
+      line1: 'Biometric Mismatch !',
+      line2: 'Verification failed for:',
+      line3: result.member_name ? `${result.member_name} (Fingerprint did not match)` : 'Selected pass member',
+    };
+  }
+
+  if (result.code === 'ENROLLMENT_REQUIRED') {
+    return {
+      line1: 'Enrollment Required !',
+      line2: 'Action Needed:',
+      line3: 'Complete member photo & biometric registration at Pass Desk',
     };
   }
 
@@ -104,11 +123,18 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
   const [phoneInput, setPhoneInput] = useState<string>('');
   const [isPhoneValidating, setIsPhoneValidating] = useState<boolean>(false);
 
-  // Biometric gate verification modal state
-  const [gateBioModalOpen, setGateBioModalOpen] = useState(false);
-  const [pendingScanCode, setPendingScanCode] = useState<string>('');
-  const [pendingPass, setPendingPass] = useState<Pass | null>(null);
-  const [pendingEntryPhoto, setPendingEntryPhoto] = useState<string | undefined>(undefined);
+  // Pass Gate Verification Modal State (for Monthly / Yearly passes)
+  const [activePassForGate, setActivePassForGate] = useState<Pass | null>(null);
+  const [activePassMembers, setActivePassMembers] = useState<PassMember[]>([]);
+  const [selectedMember, setSelectedMember] = useState<PassMember | null>(null);
+  const [freshGatePhoto, setFreshGatePhoto] = useState<string | null>(null);
+  const [freshBiometricTemplate, setFreshBiometricTemplate] = useState<string | null>(null);
+  const [freshBiometricQuality, setFreshBiometricQuality] = useState<number | null>(null);
+  const [isCapturingGatePhoto, setIsCapturingGatePhoto] = useState<boolean>(false);
+  const [isScanningGateBiometric, setIsScanningGateBiometric] = useState<boolean>(false);
+  const [isVerifyingGateEntry, setIsVerifyingGateEntry] = useState<boolean>(false);
+  const [gateMemberVerificationError, setGateMemberVerificationError] = useState<string | null>(null);
+  const [admittedMemberNotice, setAdmittedMemberNotice] = useState<{ name: string; photo: string } | null>(null);
 
   const scanLockedRef = useRef<boolean>(false);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
@@ -135,6 +161,12 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
   // Next Scan Handler: Instant unpause without needing page reload
   const handleNextScan = async () => {
     setVerificationResult(null);
+    setActivePassForGate(null);
+    setSelectedMember(null);
+    setFreshGatePhoto(null);
+    setFreshBiometricTemplate(null);
+    setGateMemberVerificationError(null);
+    setAdmittedMemberNotice(null);
 
     if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
       try {
@@ -158,6 +190,12 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
   // Dismiss card only
   const handleDismissCard = () => {
     setVerificationResult(null);
+    setActivePassForGate(null);
+    setSelectedMember(null);
+    setFreshGatePhoto(null);
+    setFreshBiometricTemplate(null);
+    setGateMemberVerificationError(null);
+    setAdmittedMemberNotice(null);
     scanLockedRef.current = false;
     setIsScanLocked(false);
     setIsProcessing(false);
@@ -178,7 +216,6 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
     // Listen for hardware 2D barcode / QR scanner guns without needing an input box
     const handleKeyDown = (e: KeyboardEvent) => {
       const now = Date.now();
-      // Most barcode guns type rapid characters (< 50ms per keystroke)
       if (now - lastKeyTimeRef.current > 100) {
         barcodeBufferRef.current = '';
       }
@@ -230,7 +267,6 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
       setCameraError(null);
       await stopScanner();
 
-      // Ensure container DOM is clean before mounting new video stream
       const container = document.getElementById(scannerContainerId);
       if (container) {
         container.innerHTML = '';
@@ -255,7 +291,6 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
         qrbox: qrboxFunction,
       };
 
-      // Try Environment (Back Camera) first
       try {
         await qrScanner.start(
           { facingMode: 'environment' },
@@ -278,7 +313,6 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
           isStartingRef.current = false;
           return;
         }
-        // Fallback to front camera / laptop webcam
         await qrScanner.start(
           { facingMode: 'user' },
           qrConfig,
@@ -329,36 +363,14 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
     setScannerActive(false);
   };
 
-  const captureGateSnapshot = (): string | undefined => {
-    try {
-      const container = document.getElementById(scannerContainerId);
-      const video = container?.querySelector('video');
-      if (video && video.videoWidth > 0 && video.videoHeight > 0) {
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.min(640, video.videoWidth);
-        canvas.height = Math.round((canvas.width / video.videoWidth) * video.videoHeight);
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          return canvas.toDataURL('image/jpeg', 0.82);
-        }
-      }
-    } catch (e) {
-      console.warn('Gate snapshot capture failed:', e);
-    }
-    return undefined;
-  };
-
+  // Main Scanned Code Handler
   const handleScannedCode = async (rawCode: string) => {
     const cleanCode = rawCode.trim();
     if (!cleanCode || isProcessing || scanLockedRef.current) return;
 
-    // 1. Immediately lock scanning in software & capture gate snapshot
     scanLockedRef.current = true;
     setIsScanLocked(true);
     setIsProcessing(true);
-
-    const entrySnapshot = captureGateSnapshot();
 
     try {
       if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
@@ -369,80 +381,68 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
     }
 
     try {
-      // 2. Check if scanned item is a Pass (Monthly, Yearly, or Family)
-      const pass = await dbService.findPassByTokenOrPhone(cleanCode);
-      const isPassDocument = Boolean(
-        pass ||
-        cleanCode.startsWith('VUP-M-') ||
-        cleanCode.startsWith('VUP-Y-') ||
-        cleanCode.startsWith('VUP-F-') ||
-        cleanCode.includes('MONTHLY') ||
-        cleanCode.includes('YEARLY')
-      );
+      // 1. FAST PATH: Check if this is a Single Entry Ticket (starts with VUP-T)
+      const isSingleTicket = cleanCode.startsWith('VUP-T') || cleanCode.includes('TICKET');
+      if (isSingleTicket) {
+        const response = await dbService.admitVisitor(cleanCode);
+        setVerificationResult(response);
+        refreshScanSummary();
 
-      if (isPassDocument) {
-        const enrolledMembersList = pass?.members?.length ? pass.members : (pass?.members_json || []);
-        const membersToVerify: PassMember[] = enrolledMembersList.length > 0
-          ? enrolledMembersList
-          : [{
-              id: 'mem-primary',
-              name: pass?.holder_name || 'Pass Holder',
-              relation: 'Self',
-              photo_url: pass?.photo_url,
-              biometric_id: pass?.biometric_id || 'BIO-DEFAULT',
-            }];
-
-        // If pass has NO biometric enrolled at all:
-        const hasBiometric = (enrolledMembersList && enrolledMembersList.some(m => m.biometric_id)) || pass?.biometric_id;
-        if (pass && !hasBiometric) {
+        if (response.success) {
+          sounds.playSuccess();
+        } else {
           sounds.playError();
-          setVerificationResult({
-            success: false,
-            code: 'INVALID',
-            document_type: 'PASS',
-            pass_number: pass.pass_number,
-            holder_name: pass.holder_name,
-            message: 'SECURITY ALERT: No biometric fingerprint enrolled on this pass! Entry Denied.',
-          });
-          setIsProcessing(false);
-          return;
         }
-
-        const activePassToUse: Pass = pass
-          ? { ...pass, members: membersToVerify }
-          : {
-              id: `temp-${Date.now()}`,
-              pass_number: cleanCode,
-              order_id: '',
-              plan_id: '',
-              pass_type: cleanCode.includes('YEARLY') ? 'YEARLY' : 'MONTHLY',
-              holder_name: 'Pass Holder',
-              people_allowed: 1,
-              valid_from: '',
-              valid_through: '',
-              qr_token_sha256: '',
-              qr_token_ciphertext: '',
-              qr_token_nonce: '',
-              qr_token_tag: '',
-              status: 'ACTIVE',
-              reprint_count: 0,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              members: membersToVerify,
-            };
-
-        setPendingScanCode(cleanCode);
-        setPendingPass(activePassToUse);
-        setPendingEntryPhoto(entrySnapshot);
-        setGateBioModalOpen(true);
-        setIsProcessing(false);
         return;
       }
 
-      // 3. Normal admission for Single Entry Tickets
-      const response = await dbService.admitVisitor(cleanCode, {
-        entry_photo_url: entrySnapshot,
-      });
+      // 2. PASS PATH: Look up Monthly / Yearly pass with family members
+      const lookup = await dbService.lookupPassForGate(cleanCode);
+
+      if (lookup.found && lookup.pass) {
+        // A. Pass validity check
+        if (!lookup.is_valid) {
+          sounds.playError();
+          setVerificationResult({
+            success: false,
+            code: 'EXPIRED',
+            document_type: 'PASS',
+            pass_number: lookup.pass.pass_number,
+            holder_name: lookup.pass.holder_name,
+            valid_through: lookup.pass.valid_through,
+            message: lookup.message || `Pass validity expired on ${lookup.pass.valid_through}!`,
+          });
+          return;
+        }
+
+        // B. Enrollment Status Check
+        if (lookup.pass.enrollment_status === 'PENDING_ENROLLMENT' || lookup.pass.enrollment_status === 'DRAFT') {
+          sounds.playError();
+          setVerificationResult({
+            success: false,
+            code: 'ENROLLMENT_REQUIRED',
+            document_type: 'PASS',
+            pass_number: lookup.pass.pass_number,
+            holder_name: lookup.pass.holder_name,
+            message: 'Biometric & photo enrollment is required for this pass before gate entry. Please register at Pass Desk.',
+          });
+          return;
+        }
+
+        // C. Pass is Valid -> Open Gate Member Selection Modal
+        setActivePassForGate(lookup.pass);
+        const membersList = lookup.members || [];
+        setActivePassMembers(membersList);
+        setSelectedMember(membersList[0] || null);
+        setFreshGatePhoto(null);
+        setFreshBiometricTemplate(null);
+        setGateMemberVerificationError(null);
+        setAdmittedMemberNotice(null);
+        return;
+      }
+
+      // 3. Fallback: Standard admission check
+      const response = await dbService.admitVisitor(cleanCode);
       setVerificationResult(response);
       refreshScanSummary();
 
@@ -451,67 +451,17 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
       } else {
         sounds.playError();
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Validation error:', err);
       sounds.playError();
       setVerificationResult({
         success: false,
         code: 'INVALID',
-        message: 'FRAUD ALERT: Unrecognized or forged QR code!',
+        message: 'FRAUD ALERT: Unrecognized or forged code / connection failure!',
       });
     } finally {
       setIsProcessing(false);
     }
-  };
-
-  const handleGateBioVerifySuccess = async (matchedMember: PassMember, bioId: string) => {
-    setGateBioModalOpen(false);
-    setIsProcessing(true);
-
-    try {
-      const response = await dbService.admitVisitor(pendingScanCode, {
-        biometric_id: bioId,
-        biometric_member_name: matchedMember.name,
-        entry_photo_url: pendingEntryPhoto,
-      });
-
-      setVerificationResult(response);
-      refreshScanSummary();
-
-      if (response.success) {
-        sounds.playSuccess();
-      } else {
-        sounds.playError();
-      }
-    } catch (e) {
-      sounds.playError();
-      setVerificationResult({
-        success: false,
-        code: 'INVALID',
-        message: 'Gate validation failed. Please check connection.',
-      });
-    } finally {
-      setIsProcessing(false);
-      setPendingPass(null);
-      setPendingScanCode('');
-      setPendingEntryPhoto(undefined);
-    }
-  };
-
-  const handleGateBioVerifyFailed = (reason: string) => {
-    setGateBioModalOpen(false);
-    sounds.playError();
-    setVerificationResult({
-      success: false,
-      code: 'REJECTED',
-      document_type: 'PASS',
-      pass_number: pendingPass?.pass_number,
-      holder_name: pendingPass?.holder_name,
-      message: `BIOMETRIC VERIFICATION FAILED: ${reason}`,
-    });
-    setPendingPass(null);
-    setPendingScanCode('');
-    setPendingEntryPhoto(undefined);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -536,17 +486,164 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
     }
   };
 
+  // Phone validation for pass entry
   const handlePhoneValidate = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanPhone = phoneInput.replace(/\D/g, '').slice(-10);
     if (cleanPhone.length !== 10 || isPhoneValidating) return;
 
     setIsPhoneValidating(true);
+    scanLockedRef.current = true;
+    setIsScanLocked(true);
+
     try {
-      await handleScannedCode(cleanPhone);
-      setPhoneInput('');
+      if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
+        html5QrCodeRef.current.pause(true);
+      }
+    } catch (err) {
+      console.warn('Camera pause error during phone validate:', err);
+    }
+
+    try {
+      const lookup = await dbService.lookupPassForGate(cleanPhone);
+
+      if (lookup.found && lookup.pass) {
+        if (!lookup.is_valid) {
+          sounds.playError();
+          setVerificationResult({
+            success: false,
+            code: 'EXPIRED',
+            document_type: 'PASS',
+            pass_number: lookup.pass.pass_number,
+            holder_name: lookup.pass.holder_name,
+            valid_through: lookup.pass.valid_through,
+            message: lookup.message || `Pass expired on ${lookup.pass.valid_through}!`,
+          });
+          return;
+        }
+
+        if (lookup.pass.enrollment_status === 'PENDING_ENROLLMENT' || lookup.pass.enrollment_status === 'DRAFT') {
+          sounds.playError();
+          setVerificationResult({
+            success: false,
+            code: 'ENROLLMENT_REQUIRED',
+            document_type: 'PASS',
+            pass_number: lookup.pass.pass_number,
+            holder_name: lookup.pass.holder_name,
+            message: 'Biometric & photo enrollment is required for this pass before gate entry.',
+          });
+          return;
+        }
+
+        setActivePassForGate(lookup.pass);
+        const membersList = lookup.members || [];
+        setActivePassMembers(membersList);
+        setSelectedMember(membersList[0] || null);
+        setFreshGatePhoto(null);
+        setFreshBiometricTemplate(null);
+        setGateMemberVerificationError(null);
+        setAdmittedMemberNotice(null);
+        setPhoneInput('');
+        return;
+      }
+
+      // Fallback
+      const response = await dbService.admitPassByPhone(cleanPhone);
+      setVerificationResult(response);
+      refreshScanSummary();
+
+      if (response.success) {
+        sounds.playSuccess();
+        setPhoneInput('');
+      } else {
+        sounds.playError();
+      }
+    } catch (err: unknown) {
+      console.error('Phone pass validation error:', err);
+      sounds.playError();
+      setVerificationResult({
+        success: false,
+        code: 'INVALID',
+        document_type: 'PASS',
+        message: `Failed to validate pass for mobile number ${cleanPhone}. Please verify connection.`,
+      });
     } finally {
       setIsPhoneValidating(false);
+    }
+  };
+
+  // Biometric Scan for Member at Gate
+  const handleScanGateBiometric = async () => {
+    if (!selectedMember) return;
+    setIsScanningGateBiometric(true);
+    setGateMemberVerificationError(null);
+
+    try {
+      const result = await biometricService.captureBiometric(selectedMember.full_name);
+      if (result.success && result.templateData) {
+        setFreshBiometricTemplate(result.templateData);
+        setFreshBiometricQuality(result.qualityScore);
+      } else {
+        setGateMemberVerificationError(result.errorMessage || 'Biometric scan failed. Place finger firmly on scanner.');
+      }
+    } catch (e: unknown) {
+      setGateMemberVerificationError(e instanceof Error ? e.message : 'Scanner device error');
+    } finally {
+      setIsScanningGateBiometric(false);
+    }
+  };
+
+  // Final Gate Entry Verification: Fresh Photo + Biometric 1:1 Match
+  const handleVerifyGateMemberEntry = async () => {
+    if (!activePassForGate || !selectedMember) return;
+
+    if (!freshGatePhoto) {
+      setGateMemberVerificationError('Live gate camera photo is mandatory before admission!');
+      return;
+    }
+    if (!freshBiometricTemplate) {
+      setGateMemberVerificationError('Live fingerprint scan is mandatory before admission!');
+      return;
+    }
+
+    setIsVerifyingGateEntry(true);
+    setGateMemberVerificationError(null);
+
+    try {
+      const response = await dbService.verifyMemberGateEntry({
+        passId: activePassForGate.id,
+        memberId: selectedMember.id,
+        entryPhoto: freshGatePhoto,
+        biometricSample: freshBiometricTemplate,
+        gateCode: config.gate_code,
+      });
+
+      if (response.success) {
+        sounds.playSuccess();
+        refreshScanSummary();
+
+        // Show admission confirmation
+        setAdmittedMemberNotice({
+          name: response.member_name || selectedMember.full_name,
+          photo: freshGatePhoto,
+        });
+
+        // Set global verification result
+        setVerificationResult(response);
+
+        // Reset fresh capture for next person in line
+        setFreshGatePhoto(null);
+        setFreshBiometricTemplate(null);
+        setFreshBiometricQuality(null);
+      } else {
+        sounds.playError();
+        setGateMemberVerificationError(response.message || 'Biometric mismatch or admission denied.');
+      }
+    } catch (err: unknown) {
+      sounds.playError();
+      setGateMemberVerificationError(err instanceof Error ? err.message : 'Failed to verify member entry.');
+    } finally {
+      setIsVerifyingGateEntry(false);
     }
   };
 
@@ -591,7 +688,7 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
               : 'bg-gradient-to-br from-red-600 via-rose-600 to-red-700 text-white border-red-400/80 shadow-red-900/40 ring-4 ring-red-500/20'
           }`}
         >
-          {/* Card Top Control Row: Status Pill on left, Close button on right */}
+          {/* Card Top Control Row */}
           <div className="flex items-center justify-between gap-2">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-white/20 backdrop-blur-md border border-white/30">
               {verificationResult.success ? (
@@ -645,61 +742,39 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
                   </div>
                 </div>
 
-                {/* Pass Holder Name & Biometric Details if present */}
-                {verificationResult.holder_name && (
+                {/* Member / Pass Holder Details with Gate Photo */}
+                {(verificationResult.member_name || verificationResult.holder_name) && (
                   <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span className="text-slate-500 font-semibold">Pass Holder:</span>
-                    <span className="font-black text-slate-900 truncate max-w-[200px]">
-                      {verificationResult.holder_name}
-                    </span>
-                  </div>
-                )}
-
-                {/* Biometric Verified Member Badge */}
-                {verificationResult.biometric_verified && (
-                  <div className="mt-2 p-2 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
-                    <span className="text-emerald-800 font-bold flex items-center gap-1">
-                      <Fingerprint className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Biometric Verified Member:</span>
-                    </span>
-                    <span className="font-black text-emerald-950 bg-white px-2 py-0.5 rounded border border-emerald-300">
-                      {verificationResult.biometric_member_name || verificationResult.holder_name} ✓
-                    </span>
-                  </div>
-                )}
-
-                {/* Photos Row: Registered Photo & Gate Entry Snapshot */}
-                {(verificationResult.photo_url || verificationResult.entry_photo_url) && (
-                  <div className="mt-2.5 pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-center">
-                    {verificationResult.photo_url && (
-                      <div className="bg-slate-50 p-1.5 rounded-xl border border-slate-200">
-                        <span className="block text-[9px] font-black uppercase tracking-wider text-slate-500 mb-1">
-                          Registered Photo
-                        </span>
-                        <img
-                          src={verificationResult.photo_url}
-                          alt="Enrolled"
-                          className="w-16 h-16 mx-auto rounded-lg object-cover border border-slate-300 shadow-2xs"
-                        />
-                      </div>
-                    )}
-                    {verificationResult.entry_photo_url && (
-                      <div className="bg-emerald-50/60 p-1.5 rounded-xl border border-emerald-200">
-                        <span className="block text-[9px] font-black uppercase tracking-wider text-emerald-700 mb-1">
-                          Gate Live Photo
-                        </span>
+                    <div className="flex items-center gap-2">
+                      {verificationResult.entry_photo_url && (
                         <img
                           src={verificationResult.entry_photo_url}
-                          alt="Gate Entry"
-                          className="w-16 h-16 mx-auto rounded-lg object-cover border border-emerald-400 shadow-2xs"
+                          alt="Entry Photo"
+                          className="w-10 h-10 rounded-xl object-cover border-2 border-emerald-500 shadow-xs"
                         />
+                      )}
+                      <div>
+                        <div className="font-black text-slate-900">
+                          {verificationResult.member_name || verificationResult.holder_name}
+                        </div>
+                        {verificationResult.biometric_verified && (
+                          <div className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
+                            <Fingerprint className="w-3 h-3" />
+                            <span>1:1 Biometric Verified (Match: {verificationResult.match_score || 88}%)</span>
+                          </div>
+                        )}
                       </div>
+                    </div>
+                    {verificationResult.relationship && (
+                      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                        {verificationResult.relationship}
+                      </span>
                     )}
                   </div>
                 )}
               </div>
 
-              {/* Grid of Ticket Details */}
+              {/* Grid of Ticket / Pass Details */}
               <div className="bg-black/30 backdrop-blur-md rounded-2xl p-4 border border-white/20 text-xs text-white space-y-2 shadow-inner">
                 <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-white/15">
                   <span className="text-white/70 text-[11px] sm:text-xs shrink-0 font-medium">Document Number:</span>
@@ -708,50 +783,36 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
                   </span>
                 </div>
 
-                {verificationResult.plan_name && (
+                {verificationResult.pass_type && (
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-white/70 text-[11px] sm:text-xs shrink-0 font-medium">Ticket / Pass Plan:</span>
+                    <span className="text-white/70 text-[11px] sm:text-xs shrink-0 font-medium">Pass Type:</span>
                     <span className="font-bold text-white text-xs sm:text-sm truncate">
-                      {verificationResult.plan_name}
-                    </span>
-                  </div>
-                )}
-
-                {verificationResult.issued_at && (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-white/70 text-[11px] sm:text-xs shrink-0 font-medium">Date & Time Issued:</span>
-                    <span className="font-mono font-medium text-white/95 text-xs tracking-tight whitespace-nowrap">
-                      {formatCleanDateTime(verificationResult.issued_at)}
+                      {verificationResult.pass_type} PASS
                     </span>
                   </div>
                 )}
 
                 {verificationResult.scanned_at && (
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-white/70 text-[11px] sm:text-xs shrink-0 font-medium">Date & Time Scanned:</span>
+                    <span className="text-white/70 text-[11px] sm:text-xs shrink-0 font-medium">Time Scanned:</span>
                     <span className="font-mono font-bold text-emerald-300 text-xs tracking-tight whitespace-nowrap">
                       {formatCleanDateTime(verificationResult.scanned_at)}
                     </span>
                   </div>
                 )}
 
-                <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/15">
-                  <span className="text-white/70 text-[11px] sm:text-xs shrink-0 font-medium">Payment Mode:</span>
-                  <span className="font-bold px-2 py-0.5 rounded bg-white/20 text-white uppercase text-[11px] tracking-wider">
-                    {verificationResult.payment_method || 'CASH'}
-                  </span>
-                </div>
-
-                {verificationResult.amount_inr && (
+                {verificationResult.valid_through && (
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-white/70 text-[11px] sm:text-xs shrink-0 font-medium">Total Amount:</span>
-                    <span className="font-black text-emerald-300 text-sm">₹{verificationResult.amount_inr}</span>
+                    <span className="text-white/70 text-[11px] sm:text-xs shrink-0 font-medium">Valid Through:</span>
+                    <span className="font-mono font-bold text-white text-xs">
+                      {verificationResult.valid_through}
+                    </span>
                   </div>
                 )}
               </div>
             </div>
           ) : (
-            /* DENIED / EXPIRED VIEW: Clean 3-Line Layout per user request */
+            /* DENIED / EXPIRED VIEW */
             (() => {
               const denial = parseDenialDetails(verificationResult);
               return (
@@ -760,19 +821,16 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
                     <XCircle className="w-9 h-9 stroke-[2.5]" />
                   </div>
 
-                  {/* Line 1: Ticket Already Expired ! */}
                   <div className="text-lg sm:text-2xl font-black text-red-600 uppercase tracking-tight leading-tight">
                     {denial.line1}
                   </div>
 
-                  {/* Line 2: First scanned at: */}
                   {denial.line2 && (
                     <div className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-600">
                       {denial.line2}
                     </div>
                   )}
 
-                  {/* Line 3: Date & Time */}
                   {denial.line3 && (
                     <div className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs sm:text-sm font-black text-amber-300 shadow-inner max-w-full">
                       <Clock className="w-4 h-4 text-amber-400 shrink-0" />
@@ -780,9 +838,9 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
                     </div>
                   )}
 
-                  {verificationResult.ticket_number && (
+                  {(verificationResult.ticket_number || verificationResult.pass_number) && (
                     <div className="text-[11px] sm:text-xs text-slate-500 font-mono pt-1">
-                      Ticket #: <span className="font-bold text-slate-800 whitespace-nowrap">{verificationResult.ticket_number}</span>
+                      Doc #: <span className="font-bold text-slate-800 whitespace-nowrap">{verificationResult.ticket_number || verificationResult.pass_number}</span>
                     </div>
                   )}
                 </div>
@@ -802,16 +860,260 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
               }`}
             >
               <Camera className="w-5 h-5 shrink-0 text-emerald-700" />
-              <span>NEXT SCAN (अगला टिकट स्कैन करें) ➔</span>
+              <span>NEXT SCAN (अगला टिकट / पास स्कैन करें) ➔</span>
             </button>
-
-            <div className="text-center text-[11px] text-white/90 font-medium flex items-center justify-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-white/80 shrink-0" />
-              <span>Camera OFF. Tap button above to open camera for next scan.</span>
-            </div>
           </div>
         </div>
       )}
+
+      {/* PASS GATE VERIFICATION DRAWER / MODAL (Biometric 1:1 Member Verification) */}
+      {activePassForGate && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden flex flex-col space-y-3.5 p-4 sm:p-6 relative my-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <h3 className="font-black text-slate-900 text-base sm:text-lg tracking-tight">
+                    Pass Member Verification
+                  </h3>
+                  <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
+                    {activePassForGate.pass_type}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                  Pass <strong>{activePassForGate.pass_number}</strong> • Holder:{' '}
+                  <strong>{activePassForGate.holder_name}</strong> • Exp: <strong>{activePassForGate.valid_through}</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setActivePassForGate(null);
+                  handleNextScan();
+                }}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Instruction Banner */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-700 flex items-center justify-between">
+              <span>Select the person standing at the gate from covered family members:</span>
+              <span className="text-[10px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded border">
+                1 Person / Scan
+              </span>
+            </div>
+
+            {/* Covered Members List Grid */}
+            <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+              {activePassMembers.map(m => {
+                const isSelected = selectedMember?.id === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedMember(m);
+                      setFreshGatePhoto(null);
+                      setFreshBiometricTemplate(null);
+                      setGateMemberVerificationError(null);
+                    }}
+                    className={`w-full p-2.5 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer ${
+                      isSelected
+                        ? 'bg-emerald-50/90 border-emerald-500 shadow-sm ring-2 ring-emerald-400'
+                        : 'bg-white hover:bg-slate-50 border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      {m.photo_url ? (
+                        <img
+                          src={m.photo_url}
+                          alt={m.full_name}
+                          className="w-11 h-11 rounded-xl object-cover border-2 border-slate-200 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-11 h-11 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center font-black text-xs shrink-0 border">
+                          {m.full_name.charAt(0)}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="text-xs sm:text-sm font-black text-slate-900 truncate">
+                          {m.full_name}
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded ${
+                            m.is_primary_holder
+                              ? 'bg-emerald-100 text-emerald-900 border border-emerald-200'
+                              : 'bg-slate-100 text-slate-700 border border-slate-200'
+                          }`}>
+                            {m.relationship || (m.is_primary_holder ? 'Primary' : 'Member')}
+                          </span>
+                          <span className="text-[9px] text-emerald-700 font-bold flex items-center gap-0.5">
+                            <Fingerprint className="w-3 h-3 text-emerald-600" /> Enrolled
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="shrink-0">
+                      {isSelected ? (
+                        <span className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-[10px] font-black flex items-center gap-1">
+                          <Check className="w-3 h-3" /> Present at Gate
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-bold">
+                          Select
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Gate Verification Actions for Selected Member */}
+            {selectedMember && (
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <span className="text-xs font-black text-slate-800">
+                    Verify Identity: <strong className="text-emerald-800">{selectedMember.full_name}</strong>
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-500">
+                    Live Photo & 1:1 Biometric Required
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {/* Step 1: Fresh Live Photo Capture */}
+                  <div className="bg-white border rounded-xl p-2.5 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {freshGatePhoto ? (
+                        <img
+                          src={freshGatePhoto}
+                          alt="Fresh Gate Photo"
+                          className="w-11 h-11 rounded-lg object-cover border-2 border-emerald-500 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-11 h-11 rounded-lg bg-amber-50 text-amber-700 border-2 border-dashed border-amber-300 flex items-center justify-center shrink-0">
+                          <Camera className="w-5 h-5" />
+                        </div>
+                      )}
+                      <div>
+                        <div className="text-[11px] font-black text-slate-900">1. Gate Photo</div>
+                        <div className="text-[9px] text-slate-500">
+                          {freshGatePhoto ? '✓ Live photo taken' : 'Mandatory snapshot'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsCapturingGatePhoto(true)}
+                      className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black transition cursor-pointer ${
+                        freshGatePhoto
+                          ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                          : 'bg-amber-500 hover:bg-amber-600 text-white shadow-xs'
+                      }`}
+                    >
+                      {freshGatePhoto ? 'Retake' : '📸 Take Photo'}
+                    </button>
+                  </div>
+
+                  {/* Step 2: Fresh Fingerprint Scan */}
+                  <div className="bg-white border rounded-xl p-2.5 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-11 h-11 rounded-lg border-2 flex items-center justify-center shrink-0 ${
+                        freshBiometricTemplate
+                          ? 'bg-emerald-50 border-emerald-500 text-emerald-700'
+                          : 'bg-amber-50 border-dashed border-amber-300 text-amber-700'
+                      }`}>
+                        <Fingerprint className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <div className="text-[11px] font-black text-slate-900">2. Fingerprint</div>
+                        <div className="text-[9px] text-slate-500">
+                          {freshBiometricTemplate ? `✓ Scanned (${freshBiometricQuality || 85}%)` : 'Scan on device'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleScanGateBiometric}
+                      disabled={isScanningGateBiometric}
+                      className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black transition cursor-pointer ${
+                        freshBiometricTemplate
+                          ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                      }`}
+                    >
+                      {isScanningGateBiometric ? 'Scanning...' : freshBiometricTemplate ? 'Re-scan' : '🖐️ Scan'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Error Banner */}
+                {gateMemberVerificationError && (
+                  <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-800 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                    <span className="font-bold">{gateMemberVerificationError}</span>
+                  </div>
+                )}
+
+                {/* Admission Notice */}
+                {admittedMemberNotice && (
+                  <div className="p-2.5 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-950 text-xs flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>
+                        <strong>{admittedMemberNotice.name}</strong> was successfully admitted! Select next member if multiple persons are entering.
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Submit Verification Button */}
+                <button
+                  type="button"
+                  onClick={handleVerifyGateMemberEntry}
+                  disabled={isVerifyingGateEntry || !freshGatePhoto || !freshBiometricTemplate}
+                  className={`w-full py-3 px-4 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer shadow-md ${
+                    freshGatePhoto && freshBiometricTemplate
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95'
+                      : 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                  }`}
+                >
+                  <UserCheck className="w-4 h-4" />
+                  <span>
+                    {isVerifyingGateEntry
+                      ? 'Verifying 1:1 Match...'
+                      : !freshGatePhoto
+                        ? '1. Take Gate Photo First'
+                        : !freshBiometricTemplate
+                          ? '2. Scan Fingerprint to Admit'
+                          : `Verify & Admit ${selectedMember.full_name} (1 Person)`}
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Fresh Gate Camera Capture Modal */}
+      <CameraModal
+        isOpen={isCapturingGatePhoto}
+        title={`Gate Photo: ${selectedMember?.full_name || 'Member'}`}
+        subtitle="Capture crisp snapshot of person standing at the gate"
+        onCaptureConfirm={photoUrl => {
+          setFreshGatePhoto(photoUrl);
+          setIsCapturingGatePhoto(false);
+        }}
+        onClose={() => setIsCapturingGatePhoto(false)}
+      />
 
       {/* Aesthetic Live Scan Statistics Row (2 Rich Cards) */}
       <div className="grid grid-cols-2 gap-3.5">
@@ -891,7 +1193,7 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
             ) : (
               <>
                 <Search className="w-4 h-4" />
-                <span>Verify & Admit Pass</span>
+                <span>Verify & Open Pass</span>
               </>
             )}
           </button>
@@ -943,11 +1245,11 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
           </div>
         </div>
 
-        {/* Camera Viewfinder with Futuristic Border */}
+        {/* Camera Viewfinder */}
         <div className="relative rounded-3xl overflow-hidden bg-slate-950 min-h-[350px] flex items-center justify-center border-2 border-slate-800 shadow-2xl">
           <div id={scannerContainerId} className="w-full max-w-sm mx-auto"></div>
 
-          {/* Software Lock Overlay - shown when ticket is scanned and waiting for user to click NEXT SCAN */}
+          {/* Software Lock Overlay */}
           {isScanLocked && (
             <div className="absolute inset-0 bg-slate-950/92 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center text-white space-y-4 z-10 animate-in fade-in duration-200">
               <div className={`p-4 rounded-3xl border shadow-xl ${
@@ -963,10 +1265,10 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
               </div>
               <div>
                 <p className="text-base font-black text-white">
-                  {verificationResult?.success ? 'Ticket Verified • Camera Paused' : 'Ticket Expired • Camera Paused'}
+                  {verificationResult?.success ? 'Ticket / Pass Verified • Camera Paused' : 'Scan Blocked • Camera Paused'}
                 </p>
                 <p className="text-xs text-slate-300 mt-1 max-w-xs font-medium">
-                  Review ticket details above. Tap below when ready to scan next ticket:
+                  Review details above. Tap below when ready to scan next visitor:
                 </p>
               </div>
               <button
@@ -980,7 +1282,7 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
             </div>
           )}
 
-          {/* Shown when camera is stopped manually and no scan is locked */}
+          {/* Camera Off state */}
           {!scannerActive && !isScanLocked && !cameraError && (
             <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center p-6 text-center text-white space-y-4">
               <div className="w-16 h-16 bg-slate-900 text-slate-400 rounded-3xl border border-slate-800 flex items-center justify-center shadow-inner">
@@ -1027,11 +1329,11 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
           )}
         </div>
 
-        {/* Security Badge - No Manual Entry Allowed */}
+        {/* Security Badge */}
         <div className="pt-3 border-t border-emerald-950/10 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-2 text-emerald-900 font-black bg-emerald-50 border border-emerald-200/80 px-3.5 py-1.5 rounded-xl">
             <Lock className="w-3.5 h-3.5 text-emerald-700" />
-            <span>Anti-Fraud Mode Active • Optical QR & Mobile Pass Validation</span>
+            <span>Anti-Fraud Mode Active • Optical QR, Pass Biometrics & Mobile Lookup</span>
           </div>
           <div className="flex items-center gap-1.5 text-slate-500 font-bold">
             <Volume2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -1039,39 +1341,6 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
           </div>
         </div>
       </div>
-
-      {/* Gate Entry Biometric Verification Modal */}
-      {pendingPass && (
-        <BiometricScannerModal
-          isOpen={gateBioModalOpen}
-          onClose={() => {
-            setGateBioModalOpen(false);
-            setIsProcessing(false);
-            setPendingPass(null);
-            setPendingScanCode('');
-            setPendingEntryPhoto(undefined);
-            scanLockedRef.current = false;
-            setIsScanLocked(false);
-          }}
-          mode="VERIFY"
-          memberName={pendingPass.holder_name}
-          enrolledMembers={
-            pendingPass.members?.length
-              ? pendingPass.members
-              : (pendingPass.members_json?.length
-                  ? pendingPass.members_json
-                  : [{
-                      id: 'mem-primary',
-                      name: pendingPass.holder_name,
-                      relation: 'Self',
-                      photo_url: pendingPass.photo_url,
-                      biometric_id: pendingPass.biometric_id,
-                    }])
-          }
-          onVerifySuccess={handleGateBioVerifySuccess}
-          onVerifyFailed={handleGateBioVerifyFailed}
-        />
-      )}
     </div>
   );
 };

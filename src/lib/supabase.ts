@@ -3,7 +3,6 @@ import type {
   AppConfig,
   Ticket,
   Pass,
-  PassMember,
   Order,
   Plan,
   EntryEvent,
@@ -12,11 +11,16 @@ import type {
   EntryResult,
   AuthStaff,
   StaffUser,
-  AuditLog
+  AuditLog,
+  PassMember,
+  MaritalStatus,
+  PassEnrollmentStatus,
+  BiometricEnrollment
 } from '../types';
 import { generateSecureQrToken, encryptQrToken, computeSha256 } from './crypto';
 import { getSystemDeviceInfo } from './device';
 import { getTodayIstYmd, getIstDateYmd, isSameIstDay } from './dateUtils';
+import { biometricService } from './biometric';
 
 export const DEFAULT_APP_CONFIG: AppConfig = {
   park_settings: {
@@ -1165,7 +1169,7 @@ class VupDatabaseService {
     return newTicket;
   }
 
-  // 2. ISSUE REUSABLE PASS (MONTHLY, YEARLY, OR FAMILY)
+  // 2. ISSUE REUSABLE PASS (MONTHLY, YEARLY, OR FAMILY) WITH FAMILY & BIOMETRIC ENROLLMENT
   async issuePass(params: {
     pass_type: 'MONTHLY' | 'YEARLY' | 'FAMILY';
     holder_name: string;
@@ -1174,12 +1178,24 @@ class VupDatabaseService {
     payment_method: PaymentMethod;
     duration_days?: number;
     price_paise?: number;
-    marital_status?: 'MARRIED' | 'UNMARRIED';
-    family_members_count?: number;
+    marital_status?: MaritalStatus;
+    family_size?: number;
     children_count?: number;
-    photo_url?: string;
-    biometric_id?: string;
-    members?: PassMember[];
+    covered_members_count?: number;
+    enrollment_status?: PassEnrollmentStatus;
+    members?: Array<{
+      id?: string;
+      full_name: string;
+      relationship: string;
+      is_primary_holder: boolean;
+      photo_url?: string;
+      photo_captured_at?: string;
+      biometric_template?: string;
+      biometric_quality?: number;
+      status?: 'ACTIVE' | 'PENDING' | 'INACTIVE';
+      consent_recorded?: boolean;
+      guardian_consent_name?: string;
+    }>;
   }): Promise<Pass> {
     // 0. Strict validation: Mobile number is mandatory (valid 10 digits starting with 6-9)
     const cleanPhone = (params.holder_phone || '').replace(/\D/g, '').slice(-10);
@@ -1187,35 +1203,48 @@ class VupDatabaseService {
       throw new Error('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
     }
 
-    // 1. Strict validation: Photo and Biometric are mandatory before saving pass
-    const effectiveBioId = params.biometric_id || (params.members && params.members[0]?.biometric_id);
-    if (!effectiveBioId || !effectiveBioId.trim()) {
-      throw new Error('Biometric Fingerprint scan is strictly mandatory! Pass cannot be generated or saved without biometric enrollment.');
-    }
-
-    const effectivePhotoUrl = params.photo_url || (params.members && params.members[0]?.photo_url);
-    if (!effectivePhotoUrl || !effectivePhotoUrl.trim()) {
-      throw new Error('Pass holder photo is mandatory! Pass cannot be generated or saved without photo capture.');
-    }
-
-    if (params.members && params.members.length > 0) {
-      for (let i = 0; i < params.members.length; i++) {
-        const m = params.members[i];
-        if (!m.biometric_id || !m.biometric_id.trim()) {
-          throw new Error(`Member ${i + 1} (${m.name || m.relation}) biometric fingerprint is missing! Every person on the pass must have biometric enrolled before saving.`);
-        }
-        if (!m.photo_url || !m.photo_url.trim()) {
-          throw new Error(`Member ${i + 1} (${m.name || m.relation}) photo is missing! Every person on the pass must have photo captured before saving.`);
-        }
-      }
-    }
-
-    // 2. Strict validation: No duplicate active pass until existing pass validity expires
+    // 1. Strict validation: No duplicate active pass until existing pass validity expires
     const existingActivePass = await this.checkActivePassByPhone(cleanPhone);
     if (existingActivePass) {
       throw new Error(
         `Mobile number ${cleanPhone} already has an ACTIVE pass (${existingActivePass.pass_number}) valid until ${existingActivePass.valid_through}! Cannot issue a new pass until the current pass expires.`
       );
+    }
+
+    // 2. Family & Covered Members Validation
+    const familySize = Math.max(1, Math.round(Number(params.family_size) || 1));
+    const coveredCount = Math.max(1, Math.min(familySize, Math.round(Number(params.covered_members_count) || params.people_allowed || 1)));
+    const childrenCount = Math.max(0, Math.min(familySize, Math.round(Number(params.children_count) || 0)));
+    const maritalStatus = params.marital_status || 'UNMARRIED';
+    const enrollmentStatus: PassEnrollmentStatus = params.enrollment_status || 'ACTIVE';
+
+    if (coveredCount > familySize) {
+      throw new Error(`Covered members (${coveredCount}) cannot exceed total family size (${familySize}).`);
+    }
+
+    const membersList = params.members || [];
+
+    // If activating pass (not draft), all covered members must have photo and biometric
+    if (enrollmentStatus === 'ACTIVE') {
+      if (membersList.length !== coveredCount) {
+        throw new Error(`Pass requires enrollment for exactly ${coveredCount} member(s). Received ${membersList.length}.`);
+      }
+      const primaryCount = membersList.filter(m => m.is_primary_holder).length;
+      if (primaryCount !== 1) {
+        throw new Error('Exactly one primary pass holder must be selected.');
+      }
+      for (let i = 0; i < membersList.length; i++) {
+        const m = membersList[i];
+        if (!m.full_name || !m.full_name.trim()) {
+          throw new Error(`Member #${i + 1} full name is required.`);
+        }
+        if (!m.photo_url || m.photo_url.length < 20) {
+          throw new Error(`Live camera photo is missing for member "${m.full_name}". Photo capture is mandatory.`);
+        }
+        if (!m.biometric_template || m.biometric_template.length < 10) {
+          throw new Error(`Biometric enrollment is missing for member "${m.full_name}". Fingerprint scan is mandatory.`);
+        }
+      }
     }
 
     const plan = DEFAULT_PLANS.find(p => p.plan_type === params.pass_type) || DEFAULT_PLANS[1];
@@ -1234,8 +1263,8 @@ class VupDatabaseService {
       } else {
         amountPaise = plan.price_paise;
       }
-      if (params.people_allowed > 1) {
-        amountPaise = amountPaise * params.people_allowed;
+      if (coveredCount > 1) {
+        amountPaise = amountPaise * coveredCount;
       }
     }
 
@@ -1258,7 +1287,7 @@ class VupDatabaseService {
       item_type: params.pass_type,
       purchaser_name: params.holder_name,
       purchaser_phone: cleanPhone,
-      persons_count: params.people_allowed,
+      persons_count: coveredCount,
       amount_paise: amountPaise,
       payment_method: params.payment_method,
       payment_status: 'PAID',
@@ -1274,15 +1303,38 @@ class VupDatabaseService {
       ? `Monthly Pass (${days === 30 ? '1 Month' : days === 60 ? '2 Months' : '3 Months'})`
       : plan.name;
 
+    const passId = crypto.randomUUID ? crypto.randomUUID() : `ps-${Date.now()}`;
+
+    // Structure members with persistent IDs
+    const preparedMembers: PassMember[] = membersList.map((m, idx) => ({
+      id: m.id || (crypto.randomUUID ? crypto.randomUUID() : `mem-${Date.now()}-${idx}`),
+      pass_id: passId,
+      full_name: m.full_name.trim(),
+      relationship: m.relationship || (m.is_primary_holder ? 'SELF' : 'OTHER'),
+      is_primary_holder: !!m.is_primary_holder,
+      photo_url: m.photo_url,
+      photo_captured_at: m.photo_captured_at || nowIso,
+      status: (m.status as any) || (m.photo_url && m.biometric_template ? 'ACTIVE' : 'PENDING'),
+      enabled: m.status !== 'INACTIVE',
+      has_biometric: !!m.biometric_template,
+      biometric_type: 'FINGERPRINT',
+      biometric_template: m.biometric_template,
+      biometric_enrolled_at: m.biometric_template ? nowIso : undefined,
+      biometric_quality: m.biometric_quality || 85,
+      consent_recorded: m.consent_recorded !== false,
+      guardian_consent_name: m.guardian_consent_name,
+      created_at: nowIso,
+    }));
+
     const newPass: Pass = {
-      id: crypto.randomUUID ? crypto.randomUUID() : `ps-${Date.now()}`,
+      id: passId,
       pass_number: passNumber,
       order_id: order.id,
       plan_id: plan.id,
       pass_type: params.pass_type,
       holder_name: params.holder_name,
       holder_phone: cleanPhone,
-      people_allowed: params.people_allowed,
+      people_allowed: coveredCount,
       valid_from: validFromDate,
       valid_through: validThroughDate,
       qr_token_sha256: sha256,
@@ -1298,106 +1350,646 @@ class VupDatabaseService {
       amount_paise: amountPaise,
       payment_method: params.payment_method,
       device_name: getSystemDeviceInfo().deviceName,
-      marital_status: params.marital_status || 'UNMARRIED',
-      family_members_count: params.family_members_count || params.people_allowed || 1,
-      children_count: params.children_count || 0,
-      photo_url: params.photo_url || (params.members && params.members[0]?.photo_url),
-      biometric_id: params.biometric_id || (params.members && params.members[0]?.biometric_id),
-      members: params.members || [],
-      members_json: params.members || [],
+      marital_status: maritalStatus,
+      family_size: familySize,
+      children_count: childrenCount,
+      covered_members_count: coveredCount,
+      enrollment_status: enrollmentStatus,
+      members: preparedMembers,
     };
 
+    // Save to Cloud Supabase
     if (this.supabase) {
       try {
-        const { data, error } = await this.supabase.rpc('issue_pass', {
-          p_pass_type: params.pass_type,
-          p_holder_name: params.holder_name,
-          p_holder_phone: cleanPhone,
-          p_people_allowed: params.people_allowed,
-          p_payment_method: params.payment_method,
-          p_valid_from: validFromDate,
-          p_valid_through: validThroughDate,
-          p_qr_sha256: sha256,
-          p_qr_ciphertext: ciphertext,
-          p_qr_nonce: nonce,
-          p_qr_tag: tag,
-          p_members: params.members || [],
-          p_operator_id: this.getCurrentStaff()?.id || null,
-          p_counter_code: this.config.counter_code,
-          p_device_name: getSystemDeviceInfo().deviceName,
-          p_marital_status: params.marital_status || 'UNMARRIED',
-          p_family_members_count: params.family_members_count || params.people_allowed || 1,
-          p_children_count: params.children_count || 0,
-          p_photo_url: params.photo_url || (params.members && params.members[0]?.photo_url) || null,
-          p_biometric_id: params.biometric_id || (params.members && params.members[0]?.biometric_id) || null,
-        });
+        const { error: passErr } = await this.supabase
+          .from('passes')
+          .insert({
+            id: newPass.id,
+            pass_number: newPass.pass_number,
+            order_id: order.id,
+            plan_id: plan.id,
+            pass_type: newPass.pass_type,
+            holder_name: newPass.holder_name,
+            holder_phone: cleanPhone,
+            people_allowed: coveredCount,
+            valid_from: validFromDate,
+            valid_through: validThroughDate,
+            qr_token_sha256: sha256,
+            qr_token_ciphertext: ciphertext,
+            qr_token_nonce: nonce,
+            qr_token_tag: tag,
+            status: 'ACTIVE',
+            marital_status: maritalStatus,
+            family_members_count: familySize,
+            children_count: childrenCount,
+            covered_members_count: coveredCount,
+            enrollment_status: enrollmentStatus,
+            photo_url: preparedMembers[0]?.photo_url || null,
+            biometric_id: preparedMembers[0]?.biometric_template ? 'BIO-01' : null,
+            members_json: preparedMembers,
+          });
 
-        if (data && data.success === false) {
-          throw new Error(data.message || 'Cannot issue pass in database');
+        if (passErr) {
+          console.warn('Supabase pass insert error, fallback:', passErr);
         }
 
-        if (error) {
-          throw new Error(error.message || 'Database error occurred while issuing pass.');
-        }
+        // Insert members
+        if (preparedMembers.length > 0) {
+          const membersToInsert = preparedMembers.map(m => ({
+            id: m.id,
+            pass_id: newPass.id,
+            member_name: m.full_name,
+            full_name: m.full_name,
+            relation: m.relationship,
+            relationship: m.relationship,
+            is_primary_holder: m.is_primary_holder,
+            photo_url: m.photo_url,
+            photo_captured_at: m.photo_captured_at,
+            status: m.status,
+            enabled: m.enabled,
+            biometric_id: m.biometric_template ? `BIO-${m.id.slice(0, 8)}` : null,
+            biometric_template: m.biometric_template,
+            biometric_enrolled_at: m.biometric_enrolled_at,
+          }));
 
-        if (data && data.success && data.pass) {
-          const sPass = data.pass;
-          newPass.id = sPass.id;
-          newPass.pass_number = sPass.pass_number;
-          newPass.order_id = sPass.order_id;
-          order.id = sPass.order_id;
-          order.amount_paise = sPass.price_paise;
-          console.log('✅ Pass secured & issued by Supabase Server RPC:', newPass.pass_number);
+          await this.supabase.from('pass_members').upsert(membersToInsert);
+
+          // Insert Biometric Enrollments
+          const enrollmentsToInsert = [];
+          for (const m of preparedMembers) {
+            if (m.biometric_template) {
+              const hash = await computeSha256(m.biometric_template);
+              enrollmentsToInsert.push({
+                pass_id: newPass.id,
+                member_id: m.id,
+                biometric_type: 'FINGERPRINT',
+                device_provider: 'MANTRA_MFS100',
+                template_data: m.biometric_template,
+                template_hash: hash,
+                quality_score: m.biometric_quality || 85,
+                status: 'ENROLLED',
+                consent_recorded: m.consent_recorded !== false,
+                guardian_consent_name: m.guardian_consent_name || null,
+                enrolled_at: nowIso,
+              });
+            }
+          }
+          if (enrollmentsToInsert.length > 0) {
+            await this.supabase.from('biometric_enrollments').upsert(enrollmentsToInsert);
+          }
         }
-      } catch (err: any) {
-        if (err.message && (err.message.includes('mandatory') || err.message.includes('already') || err.message.includes('Cannot'))) {
-          throw err;
-        }
-        console.warn('Supabase issue_pass RPC failed, maintaining local state:', err);
+      } catch (err: unknown) {
+        console.warn('Supabase pass/members cloud sync warning:', err);
       }
     }
 
+    // Local Storage Preservation
     this.saveLocalPass(newPass);
     this.saveLocalOrder(order);
+    this.saveLocalPassMembers(preparedMembers);
+
+    for (const m of preparedMembers) {
+      if (m.biometric_template) {
+        this.saveLocalBiometricEnrollment({
+          id: `bio-${m.id}`,
+          pass_id: newPass.id,
+          member_id: m.id,
+          biometric_type: 'FINGERPRINT',
+          device_provider: 'MANTRA_MFS100',
+          template_data: m.biometric_template,
+          template_hash: m.biometric_template.slice(0, 32),
+          quality_score: m.biometric_quality || 85,
+          status: 'ENROLLED',
+          consent_recorded: m.consent_recorded !== false,
+          guardian_consent_name: m.guardian_consent_name,
+          enrolled_at: nowIso,
+        });
+      }
+    }
 
     const currentStaff = this.getCurrentStaff();
     this.logAuditEvent({
-      action: 'PASS_GENERATED',
+      action: enrollmentStatus === 'DRAFT' ? 'PASS_DRAFT_SAVED' : 'PASS_GENERATED',
       entity_type: 'PASS',
       entity_id: newPass.pass_number,
       actor_name: currentStaff?.name || 'Counter Operator',
       actor_email: currentStaff?.email || 'counter1@vedupvan.local',
-      details_summary: `${params.pass_type} Pass (${newPass.holder_name}) • ₹${((amountPaise || 0) / 100).toFixed(0)} (${params.payment_method})`,
+      details_summary: `${params.pass_type} Pass (${newPass.holder_name}) • Family: ${familySize}, Covered: ${coveredCount} • ${enrollmentStatus}`,
       after_json: {
         pass_number: newPass.pass_number,
         holder_name: newPass.holder_name,
         pass_type: params.pass_type,
-        people_allowed: newPass.people_allowed,
+        family_size: familySize,
+        covered_members_count: coveredCount,
+        children_count: childrenCount,
+        marital_status: maritalStatus,
+        enrollment_status: enrollmentStatus,
+        members_count: preparedMembers.length,
         price_paise: amountPaise,
-        valid_from: validFromDate,
-        valid_through: validThroughDate,
         payment_method: params.payment_method,
-        marital_status: newPass.marital_status,
-        family_members_count: newPass.family_members_count,
-        children_count: newPass.children_count,
-        has_photo: !!newPass.photo_url,
-        has_biometric: !!newPass.biometric_id,
-        members_count: (params.members || []).length,
       },
     });
 
     return newPass;
   }
 
-  // 3. GATE ENTRY VALIDATION & BURNING (SECURE SHA-256 LOOKUP)
-  async admitVisitor(
-    rawQrTokenOrText: string,
-    options?: {
-      biometric_id?: string;
-      entry_photo_url?: string;
-      biometric_member_name?: string;
+  /**
+   * Save a pass as DRAFT (allows partial enrollment to be completed later)
+   */
+  async savePassDraft(params: Parameters<typeof this.issuePass>[0]): Promise<Pass> {
+    return this.issuePass({
+      ...params,
+      enrollment_status: 'DRAFT',
+    });
+  }
+
+  /**
+   * Update enrollment (photos and biometrics) for an existing pass or legacy pass
+   */
+  async updatePassEnrollment(passId: string, members: PassMember[]): Promise<{ success: boolean; pass?: Pass; message?: string }> {
+    const passes = this.getLocalPasses();
+    const idx = passes.findIndex(p => p.id === passId || p.pass_number === passId);
+    if (idx === -1) {
+      return { success: false, message: 'Pass not found.' };
     }
-  ): Promise<VerificationResponse> {
+
+    const targetPass = passes[idx];
+    const nowIso = new Date().toISOString();
+
+    // Verify all members have photos and biometrics
+    const isAllComplete = members.length > 0 && members.every(m => m.photo_url && m.biometric_template);
+    const newStatus: PassEnrollmentStatus = isAllComplete ? 'ACTIVE' : 'PENDING_ENROLLMENT';
+
+    targetPass.members = members;
+    targetPass.enrollment_status = newStatus;
+    targetPass.updated_at = nowIso;
+    targetPass.people_allowed = members.length;
+    targetPass.covered_members_count = members.length;
+
+    // Update in Supabase
+    if (this.supabase) {
+      try {
+        await this.supabase.from('passes').update({
+          enrollment_status: newStatus,
+          people_allowed: members.length,
+          covered_members_count: members.length,
+          members_json: members,
+          updated_at: nowIso,
+        }).eq('id', targetPass.id);
+
+        const memberRows = members.map(m => ({
+          id: m.id,
+          pass_id: targetPass.id,
+          member_name: m.full_name,
+          full_name: m.full_name,
+          relation: m.relationship,
+          relationship: m.relationship,
+          is_primary_holder: m.is_primary_holder,
+          photo_url: m.photo_url,
+          photo_captured_at: m.photo_captured_at || nowIso,
+          status: (m.photo_url && m.biometric_template ? 'ACTIVE' : 'PENDING') as any,
+          enabled: true,
+          biometric_id: m.biometric_template ? `BIO-${m.id.slice(0, 8)}` : null,
+          biometric_template: m.biometric_template,
+          biometric_enrolled_at: m.biometric_template ? nowIso : null,
+        }));
+
+        await this.supabase.from('pass_members').upsert(memberRows);
+
+        for (const m of members) {
+          if (m.biometric_template) {
+            const hash = await computeSha256(m.biometric_template);
+            await this.supabase.from('biometric_enrollments').upsert({
+              pass_id: targetPass.id,
+              member_id: m.id,
+              biometric_type: 'FINGERPRINT',
+              device_provider: 'MANTRA_MFS100',
+              template_data: m.biometric_template,
+              template_hash: hash,
+              quality_score: m.biometric_quality || 85,
+              status: 'ENROLLED',
+              consent_recorded: m.consent_recorded !== false,
+              guardian_consent_name: m.guardian_consent_name || null,
+              enrolled_at: nowIso,
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Update pass enrollment Supabase sync error:', e);
+      }
+    }
+
+    // Save locally
+    this.saveLocalPass(targetPass);
+    this.saveLocalPassMembers(members);
+
+    return {
+      success: true,
+      pass: targetPass,
+      message: isAllComplete ? 'Pass enrollment completed & activated!' : 'Enrollment saved as draft.',
+    };
+  }
+
+  /**
+   * Look up a Pass for Gate Entry: checks validity and retrieves covered family members list
+   */
+  async lookupPassForGate(identifier: string): Promise<{
+    found: boolean;
+    pass?: Pass;
+    members?: PassMember[];
+    is_valid?: boolean;
+    code?: string;
+    message?: string;
+  }> {
+    const trimmed = identifier.trim();
+    if (!trimmed) return { found: false, message: 'Please enter or scan a pass number or mobile number.' };
+
+    const todayYmd = getTodayIstYmd();
+
+    // 1. Try Supabase lookup RPC
+    if (this.supabase) {
+      try {
+        const { data, error } = await this.supabase.rpc('lookup_pass_for_entry', { p_identifier: trimmed });
+        if (!error && data && data.found) {
+          const passData = data.pass as Pass;
+          const membersData = (data.members || []) as PassMember[];
+          const isValid = passData.status === 'ACTIVE' && todayYmd >= passData.valid_from && todayYmd <= passData.valid_through;
+
+          return {
+            found: true,
+            pass: passData,
+            members: membersData,
+            is_valid: isValid,
+            code: !isValid ? 'EXPIRED' : passData.enrollment_status === 'PENDING_ENROLLMENT' ? 'ENROLLMENT_REQUIRED' : 'SUCCESS',
+            message: !isValid
+              ? `Pass expired on ${passData.valid_through}!`
+              : passData.enrollment_status === 'PENDING_ENROLLMENT'
+                ? 'Pass enrollment is required before gate entry.'
+                : 'Pass verified! Please select the person present at gate.',
+          };
+        }
+      } catch (err) {
+        console.warn('Supabase lookup_pass_for_entry failed, trying local engine:', err);
+      }
+    }
+
+    // 2. Deterministic Local Fallback
+    const cleanDigits = trimmed.replace(/\D/g, '').slice(-10);
+    const passes = this.getLocalPasses();
+
+    const matchedPass = passes.find(p => {
+      const pNum = (p.pass_number || '').toLowerCase();
+      const pHash = (p.qr_token_sha256 || '').toLowerCase();
+      const pPhone = (p.holder_phone || '').replace(/\D/g, '').slice(-10);
+      const q = trimmed.toLowerCase();
+
+      return pNum === q || pHash === q || (cleanDigits.length === 10 && pPhone === cleanDigits);
+    });
+
+    if (!matchedPass) {
+      return { found: false, message: `No pass found matching "${trimmed}".` };
+    }
+
+    const isValid = matchedPass.status === 'ACTIVE' && todayYmd >= matchedPass.valid_from && todayYmd <= matchedPass.valid_through;
+    let passMembers = this.getLocalPassMembers(matchedPass.id);
+
+    // If no members are stored, create primary holder record from pass holder name
+    if (passMembers.length === 0) {
+      const defaultPrimary: PassMember = {
+        id: `mem-${matchedPass.id}-0`,
+        pass_id: matchedPass.id,
+        full_name: matchedPass.holder_name,
+        relationship: 'SELF',
+        is_primary_holder: true,
+        status: 'ACTIVE',
+        enabled: true,
+        has_biometric: false,
+        created_at: matchedPass.created_at,
+      };
+      passMembers = [defaultPrimary];
+    }
+
+    return {
+      found: true,
+      pass: matchedPass,
+      members: passMembers,
+      is_valid: isValid,
+      code: !isValid ? 'EXPIRED' : matchedPass.enrollment_status === 'PENDING_ENROLLMENT' ? 'ENROLLMENT_REQUIRED' : 'SUCCESS',
+      message: !isValid
+        ? `Pass validity expired on ${matchedPass.valid_through}!`
+        : matchedPass.enrollment_status === 'PENDING_ENROLLMENT'
+          ? 'Biometric & photo enrollment is required for this pass.'
+          : 'Pass valid! Select person standing at gate.',
+    };
+  }
+
+  /**
+   * Verify individual family member at gate using fresh live photo and 1:1 biometric scan.
+   * Admits exactly 1 person per verification.
+   */
+  async verifyMemberGateEntry(params: {
+    passId: string;
+    memberId: string;
+    entryPhoto: string;
+    biometricSample: string;
+    gateCode?: string;
+    requestId?: string;
+  }): Promise<VerificationResponse> {
+    const gateCode = params.gateCode || this.config.gate_code;
+    const reqId = params.requestId || (crypto.randomUUID ? crypto.randomUUID() : `req-${Date.now()}`);
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const todayYmd = getTodayIstYmd();
+    const currentStaff = this.getCurrentStaff();
+
+    // 1. Mandatory fresh photo capture check
+    if (!params.entryPhoto || params.entryPhoto.length < 20) {
+      return {
+        success: false,
+        code: 'PHOTO_REQUIRED',
+        message: 'Live camera photo capture is required before gate admission!',
+      };
+    }
+
+    // 2. Mandatory biometric scan check
+    if (!params.biometricSample || params.biometricSample.length < 10) {
+      return {
+        success: false,
+        code: 'BIOMETRIC_REQUIRED',
+        message: 'Live biometric scan is required to verify identity!',
+      };
+    }
+
+    // 3. Try Supabase Server-Side Verification RPC
+    if (this.supabase) {
+      try {
+        const { data, error } = await this.supabase.rpc('verify_member_entry', {
+          p_pass_id: params.passId,
+          p_member_id: params.memberId,
+          p_entry_photo: params.entryPhoto,
+          p_biometric_sample: params.biometricSample,
+          p_gate_code: gateCode,
+          p_request_id: reqId,
+          p_operator_id: currentStaff?.id || null,
+        });
+
+        if (!error && data) {
+          const res = data as VerificationResponse;
+
+          this.logAuditEvent({
+            action: res.success ? 'GATE_MEMBER_ADMITTED' : 'GATE_MEMBER_DENIED',
+            entity_type: 'GATE',
+            entity_id: res.pass_number || params.passId,
+            actor_name: currentStaff?.name || 'Gate Security',
+            actor_email: currentStaff?.email || 'gate1@vedupvan.local',
+            details_summary: res.success
+              ? `Entry Approved: ${res.member_name} (${res.relationship}) • Biometric Verified`
+              : `Entry Denied: ${res.message}`,
+            after_json: {
+              pass_id: params.passId,
+              member_id: params.memberId,
+              member_name: res.member_name,
+              code: res.code,
+              match_score: res.match_score,
+            },
+          });
+
+          return res;
+        }
+      } catch (err) {
+        console.warn('Supabase verify_member_entry RPC failed, falling back to local verification:', err);
+      }
+    }
+
+    // 4. Local Deterministic 1:1 Verification Engine
+    const passes = this.getLocalPasses();
+    const pass = passes.find(p => p.id === params.passId || p.pass_number === params.passId);
+    if (!pass) {
+      return {
+        success: false,
+        code: 'INVALID',
+        message: 'Pass record not found in system.',
+      };
+    }
+
+    if (pass.status !== 'ACTIVE') {
+      return {
+        success: false,
+        code: pass.status as EntryResult,
+        message: `Pass is ${pass.status}!`,
+      };
+    }
+
+    if (todayYmd < pass.valid_from || todayYmd > pass.valid_through) {
+      return {
+        success: false,
+        code: 'EXPIRED',
+        message: `Pass validity expired on ${pass.valid_through}!`,
+      };
+    }
+
+    const members = this.getLocalPassMembers(pass.id);
+    const member = members.find(m => m.id === params.memberId);
+    if (!member) {
+      return {
+        success: false,
+        code: 'REJECTED',
+        message: 'Selected member not found on this pass.',
+      };
+    }
+
+    if (!member.enabled || member.status === 'INACTIVE') {
+      return {
+        success: false,
+        code: 'REJECTED',
+        message: 'Member access is disabled on this pass.',
+      };
+    }
+
+    // Lookup enrolled template
+    const enrollments = this.getLocalBiometricEnrollments(member.id);
+    const enrolledTemplate = member.biometric_template || enrollments[0]?.template_data;
+
+    if (!enrolledTemplate) {
+      this.logEntryEvent({
+        request_id: reqId,
+        document_type: 'PASS',
+        pass_id: pass.id,
+        member_id: member.id,
+        result: 'REJECTED',
+        persons_admitted: 0,
+        reason: 'Biometric enrollment missing for member',
+        scanned_at: nowIso,
+        entry_photo_url: params.entryPhoto,
+        document_number: pass.pass_number,
+        holder_name: pass.holder_name,
+      });
+
+      return {
+        success: false,
+        code: 'ENROLLMENT_REQUIRED',
+        message: `Biometric enrollment missing for ${member.full_name}! Registration required.`,
+      };
+    }
+
+    // 1:1 Biometric Comparison
+    const matchResult = await biometricService.verify1to1(enrolledTemplate, params.biometricSample);
+
+    if (!matchResult.isMatch) {
+      this.logEntryEvent({
+        request_id: reqId,
+        document_type: 'PASS',
+        pass_id: pass.id,
+        member_id: member.id,
+        result: 'REJECTED',
+        persons_admitted: 0,
+        reason: 'Biometric mismatch: fingerprint does not match enrolled profile',
+        scanned_at: nowIso,
+        entry_photo_url: params.entryPhoto,
+        biometric_verified: false,
+        biometric_match_score: matchResult.score,
+        document_number: pass.pass_number,
+        holder_name: pass.holder_name,
+      });
+
+      this.logAuditEvent({
+        action: 'GATE_PASS_DENIED_BIOMETRIC_MISMATCH',
+        entity_type: 'GATE',
+        entity_id: pass.pass_number,
+        actor_name: currentStaff?.name || 'Gate Security',
+        actor_email: currentStaff?.email || 'gate1@vedupvan.local',
+        details_summary: `Biometric mismatch for ${member.full_name} (Score: ${matchResult.score.toFixed(1)}%)`,
+        after_json: {
+          pass_number: pass.pass_number,
+          member_id: member.id,
+          member_name: member.full_name,
+          score: matchResult.score,
+        },
+      });
+
+      return {
+        success: false,
+        code: 'BIOMETRIC_MISMATCH',
+        message: `Biometric mismatch! Captured fingerprint does not match profile of ${member.full_name}.`,
+      };
+    }
+
+    // Cooldown check for this member (10 minutes)
+    const recentEvents = this.getLocalEntryEvents().filter(
+      e => e.pass_id === pass.id && e.member_id === member.id && e.result === 'SUCCESS'
+    );
+    if (recentEvents.length > 0) {
+      const lastScan = new Date(recentEvents[0].scanned_at).getTime();
+      const diffMins = (now.getTime() - lastScan) / (1000 * 60);
+      if (diffMins < 10) {
+        return {
+          success: false,
+          code: 'COOLDOWN',
+          message: `COOLDOWN ACTIVE for ${member.full_name}! Last admitted ${Math.round(diffMins)} mins ago.`,
+        };
+      }
+    }
+
+    // SUCCESS: Exactly 1 person admitted for this verified family member
+    this.logEntryEvent({
+      request_id: reqId,
+      document_type: 'PASS',
+      pass_id: pass.id,
+      member_id: member.id,
+      result: 'SUCCESS',
+      persons_admitted: 1,
+      reason: 'Member biometric & live photo verified successfully',
+      scanned_at: nowIso,
+      entry_photo_url: params.entryPhoto,
+      biometric_verified: true,
+      biometric_match_score: matchResult.score,
+      biometric_member_id: member.id,
+      biometric_member_name: member.full_name,
+      document_number: pass.pass_number,
+      holder_name: pass.holder_name,
+    });
+
+    this.logAuditEvent({
+      action: 'GATE_MEMBER_ADMITTED',
+      entity_type: 'GATE',
+      entity_id: pass.pass_number,
+      actor_name: currentStaff?.name || 'Gate Security',
+      actor_email: currentStaff?.email || 'gate1@vedupvan.local',
+      details_summary: `Entry Granted: ${member.full_name} (${member.relationship}) • Verified`,
+      after_json: {
+        pass_number: pass.pass_number,
+        member_name: member.full_name,
+        relationship: member.relationship,
+        persons_admitted: 1,
+        match_score: matchResult.score,
+      },
+    });
+
+    return {
+      success: true,
+      code: 'SUCCESS',
+      document_type: 'PASS',
+      pass_number: pass.pass_number,
+      member_id: member.id,
+      member_name: member.full_name,
+      relationship: member.relationship,
+      persons_admitted: 1,
+      entry_photo_url: params.entryPhoto,
+      match_score: matchResult.score,
+      valid_through: pass.valid_through,
+      message: `ENTRY APPROVED! Welcome ${member.full_name} (${member.relationship}).`,
+    };
+  }
+
+  // Local Storage Helpers for Pass Members & Biometrics
+  saveLocalPassMembers(members: PassMember[]) {
+    const existing = this.getLocalPassMembers();
+    for (const m of members) {
+      const idx = existing.findIndex(e => e.id === m.id);
+      if (idx !== -1) {
+        existing[idx] = m;
+      } else {
+        existing.push(m);
+      }
+    }
+    localStorage.setItem('vup_pass_members', JSON.stringify(existing.slice(0, 1000)));
+  }
+
+  getLocalPassMembers(passId?: string): PassMember[] {
+    try {
+      const data = localStorage.getItem('vup_pass_members');
+      const all: PassMember[] = data ? JSON.parse(data) : [];
+      if (!passId) return all;
+      return all.filter(m => m.pass_id === passId);
+    } catch {
+      return [];
+    }
+  }
+
+  saveLocalBiometricEnrollment(enrollment: BiometricEnrollment) {
+    const existing = this.getLocalBiometricEnrollments();
+    const idx = existing.findIndex(e => e.member_id === enrollment.member_id);
+    if (idx !== -1) {
+      existing[idx] = enrollment;
+    } else {
+      existing.push(enrollment);
+    }
+    localStorage.setItem('vup_biometric_enrollments', JSON.stringify(existing.slice(0, 1000)));
+  }
+
+  getLocalBiometricEnrollments(memberId?: string): BiometricEnrollment[] {
+    try {
+      const data = localStorage.getItem('vup_biometric_enrollments');
+      const all: BiometricEnrollment[] = data ? JSON.parse(data) : [];
+      if (!memberId) return all;
+      return all.filter(b => b.member_id === memberId);
+    } catch {
+      return [];
+    }
+  }
+
+  // 3. GATE ENTRY VALIDATION & BURNING (SECURE SHA-256 LOOKUP)
+  async admitVisitor(rawQrTokenOrText: string): Promise<VerificationResponse> {
     const trimmed = rawQrTokenOrText.trim();
     if (!trimmed) {
       return {
@@ -1410,7 +2002,7 @@ class VupDatabaseService {
     // 0. Auto-detect 10-digit mobile number input (e.g. guard typed 10 digits into scanner or barcode gun)
     const phoneDigits = trimmed.replace(/\D/g, '').slice(-10);
     if (phoneDigits.length === 10 && !trimmed.startsWith('VUP-') && trimmed.length <= 14) {
-      return this.admitPassByPhone(phoneDigits, options);
+      return this.admitPassByPhone(phoneDigits);
     }
 
     // Compute SHA-256 hash of scanned token
@@ -1424,9 +2016,6 @@ class VupDatabaseService {
           p_qr_token_hash: trimmed, // Sends raw QR token, ticket number, or hash
           p_gate_code: this.config.gate_code,
           p_request_id: requestId,
-          p_biometric_id: options?.biometric_id || null,
-          p_entry_photo_url: options?.entry_photo_url || null,
-          p_biometric_member_name: options?.biometric_member_name || null,
         });
 
         if (!error && data) {
@@ -1442,10 +2031,6 @@ class VupDatabaseService {
             document_number: res.ticket_number || res.pass_number,
             holder_name: res.holder_name,
             reason: res.message,
-            entry_photo_url: options?.entry_photo_url || res.entry_photo_url,
-            biometric_verified: options?.biometric_id ? true : res.biometric_verified,
-            biometric_member_id: options?.biometric_id,
-            biometric_member_name: options?.biometric_member_name || res.biometric_member_name,
           });
 
           const currentStaff = this.getCurrentStaff();
@@ -1458,7 +2043,7 @@ class VupDatabaseService {
             actor_name: currentStaff?.name || 'Gate Security',
             actor_email: currentStaff?.email || 'gate1@vedupvan.local',
             details_summary: res.success
-              ? `Entry Granted for ${res.persons_admitted || 1} Person(s) (${res.document_type || 'TICKET'})${options?.biometric_member_name ? ` • Biometric: ${options.biometric_member_name}` : ''}`
+              ? `Entry Granted for ${res.persons_admitted || 1} Person(s) (${res.document_type || 'TICKET'})`
               : `Scan Denied: ${res.message || res.code}`,
             after_json: {
               result: res.code,
@@ -1467,8 +2052,6 @@ class VupDatabaseService {
               holder_name: res.holder_name,
               reason: res.message,
               gate_code: this.config.gate_code,
-              biometric_verified: !!options?.biometric_id,
-              biometric_member: options?.biometric_member_name,
             },
           });
 
@@ -1482,7 +2065,7 @@ class VupDatabaseService {
     }
 
     // B. Local Deterministic Validation Engine (Conforms 100% to schema rules)
-    return this.admitVisitorLocal(trimmed, scannedHash, requestId, options);
+    return this.admitVisitorLocal(trimmed, scannedHash, requestId);
   }
 
   /**
@@ -1565,14 +2148,7 @@ class VupDatabaseService {
   /**
    * Validate and admit a pass holder using their registered 10-digit mobile number
    */
-  async admitPassByPhone(
-    rawPhone: string,
-    options?: {
-      biometric_id?: string;
-      entry_photo_url?: string;
-      biometric_member_name?: string;
-    }
-  ): Promise<VerificationResponse> {
+  async admitPassByPhone(rawPhone: string): Promise<VerificationResponse> {
     const cleanPhone = rawPhone.replace(/\D/g, '').slice(-10);
     if (cleanPhone.length !== 10) {
       return {
@@ -1609,81 +2185,10 @@ class VupDatabaseService {
     const activePass = passes.find(p => p.status === 'ACTIVE' && todayYmd >= p.valid_from && todayYmd <= p.valid_through) || passes[0];
 
     // Admit using the pass qr_token_sha256 or pass_number
-    return this.admitVisitor(activePass.qr_token_sha256 || activePass.pass_number, options);
+    return this.admitVisitor(activePass.qr_token_sha256 || activePass.pass_number);
   }
 
-  /**
-   * Find pass by QR token, pass_number, or mobile phone without admitting yet
-   * Used by Gate scanner to check if biometric / member enrollment is required
-   */
-  async findPassByTokenOrPhone(rawInput: string): Promise<Pass | null> {
-    const trimmed = rawInput.trim();
-    if (!trimmed) return null;
-
-    const phoneDigits = trimmed.replace(/\D/g, '').slice(-10);
-    if (phoneDigits.length === 10 && !trimmed.startsWith('VUP-') && trimmed.length <= 14) {
-      const passes = await this.searchPassByPhone(phoneDigits);
-      const todayYmd = getTodayIstYmd();
-      return passes.find(p => p.status === 'ACTIVE' && todayYmd >= p.valid_from && todayYmd <= p.valid_through) || passes[0] || null;
-    }
-
-    const scannedHash = await computeSha256(trimmed);
-
-    let extractedDocNum: string | null = null;
-    if (trimmed.includes('VUP-')) {
-      const match = trimmed.match(/VUP-[TMYF]-\d+-\d+/);
-      if (match) extractedDocNum = match[0];
-    }
-
-    // Try finding by pass_number or token in local
-    const local = this.getLocalPasses();
-    const localMatch = local.find(p =>
-      p.pass_number === trimmed ||
-      p.qr_raw_token === trimmed ||
-      p.qr_token_sha256 === scannedHash ||
-      p.qr_token_sha256 === trimmed ||
-      (extractedDocNum && p.pass_number === extractedDocNum)
-    );
-    if (localMatch) return localMatch;
-
-    if (this.supabase) {
-      try {
-        const filterParts = [
-          `pass_number.eq.${trimmed}`,
-          `qr_token_sha256.eq.${scannedHash}`,
-          `qr_token_sha256.eq.${trimmed}`
-        ];
-        if (extractedDocNum) filterParts.push(`pass_number.eq.${extractedDocNum}`);
-
-        const { data } = await this.supabase
-          .from('passes')
-          .select('*')
-          .or(filterParts.join(','))
-          .limit(1);
-        if (data && data.length > 0) {
-          const p = data[0];
-          return {
-            ...p,
-            members: p.members_json || [],
-          } as Pass;
-        }
-      } catch (e) {
-        console.warn('findPassByTokenOrPhone db error:', e);
-      }
-    }
-    return null;
-  }
-
-  private admitVisitorLocal(
-    rawToken: string,
-    sha256: string,
-    requestId: string,
-    options?: {
-      biometric_id?: string;
-      entry_photo_url?: string;
-      biometric_member_name?: string;
-    }
-  ): VerificationResponse {
+  private admitVisitorLocal(rawToken: string, sha256: string, requestId: string): VerificationResponse {
     const now = new Date();
     const todayYmd = getTodayIstYmd();
     const currentStaff = this.getCurrentStaff();
@@ -1908,10 +2413,6 @@ class VupDatabaseService {
         scanned_at: now.toISOString(),
         document_number: pass.pass_number,
         holder_name: pass.holder_name,
-        entry_photo_url: options?.entry_photo_url,
-        biometric_verified: options?.biometric_id ? true : false,
-        biometric_member_id: options?.biometric_id,
-        biometric_member_name: options?.biometric_member_name,
       });
 
       this.logAuditEvent({
@@ -1920,15 +2421,13 @@ class VupDatabaseService {
         entity_id: pass.pass_number,
         actor_name: currentStaff?.name || 'Gate Security',
         actor_email: currentStaff?.email || 'gate1@vedupvan.local',
-        details_summary: `Entry Granted for ${pass.people_allowed} Person(s) (${pass.holder_name})${options?.biometric_member_name ? ` • Biometric: ${options.biometric_member_name}` : ''}`,
+        details_summary: `Entry Granted for ${pass.people_allowed} Person(s) (${pass.holder_name})`,
         after_json: {
           pass_number: pass.pass_number,
           holder_name: pass.holder_name,
           people_allowed: pass.people_allowed,
           valid_through: pass.valid_through,
           gate_code: this.config.gate_code,
-          biometric_verified: !!options?.biometric_id,
-          biometric_member: options?.biometric_member_name,
         },
       });
 
@@ -1936,23 +2435,12 @@ class VupDatabaseService {
         success: true,
         code: 'SUCCESS',
         document_type: 'PASS',
-        pass_id: pass.id,
         pass_number: pass.pass_number,
         pass_type: pass.pass_type,
         holder_name: pass.holder_name,
         persons_admitted: pass.people_allowed,
         valid_through: pass.valid_through,
-        marital_status: pass.marital_status,
-        family_members_count: pass.family_members_count,
-        children_count: pass.children_count,
-        photo_url: pass.photo_url,
-        biometric_id: pass.biometric_id,
-        members: pass.members || pass.members_json || [],
-        members_json: pass.members || pass.members_json || [],
-        biometric_verified: options?.biometric_id ? true : false,
-        biometric_member_name: options?.biometric_member_name,
-        entry_photo_url: options?.entry_photo_url,
-        message: `PASS VERIFIED! Welcome ${options?.biometric_member_name || pass.holder_name} (${pass.people_allowed} Person(s) allowed).`,
+        message: `PASS VERIFIED! Welcome ${pass.holder_name} (${pass.people_allowed} Person(s) allowed).`,
       };
     }
 
@@ -2056,10 +2544,6 @@ class VupDatabaseService {
       document_number: event.document_number,
       holder_name: event.holder_name,
       device_name: getSystemDeviceInfo().deviceName,
-      entry_photo_url: event.entry_photo_url,
-      biometric_verified: event.biometric_verified,
-      biometric_member_id: event.biometric_member_id,
-      biometric_member_name: event.biometric_member_name,
     };
     events.unshift(newEvent);
     localStorage.setItem('vup_entry_events', JSON.stringify(events.slice(0, 500)));

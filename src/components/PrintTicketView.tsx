@@ -87,24 +87,6 @@ export const PrintTicketView: React.FC<PrintTicketViewProps> = ({ document: doc,
                   <span>{doc.holder_phone}</span>
                 </div>
               )}
-              {doc.marital_status && (
-                <div className="flex justify-between items-center text-[11px]">
-                  <span>STATUS:</span>
-                  <span>{doc.marital_status}</span>
-                </div>
-              )}
-              {doc.family_members_count !== undefined && doc.family_members_count > 1 && (
-                <div className="flex justify-between items-center text-[11px]">
-                  <span>FAMILY MEMBERS:</span>
-                  <span>{doc.family_members_count} PERSONS (CHILDREN: {doc.children_count || 0})</span>
-                </div>
-              )}
-              {doc.biometric_id && (
-                <div className="flex justify-between items-center text-[11px] font-black">
-                  <span>BIOMETRIC:</span>
-                  <span>ENROLLED & SECURED ✓</span>
-                </div>
-              )}
               <div className="flex justify-between items-center text-[11px] font-bold">
                 <span>VALIDITY:</span>
                 <span>{doc.valid_from} TO {doc.valid_through}</span>
@@ -112,20 +94,6 @@ export const PrintTicketView: React.FC<PrintTicketViewProps> = ({ document: doc,
             </>
           )}
         </div>
-
-        {/* Pass Holder Photo for Subscription Passes */}
-        {!isTicket && doc.photo_url && (
-          <div className="my-1.5 p-1 border-2 border-black inline-block bg-white text-center">
-            <img
-              src={doc.photo_url}
-              alt="Pass Holder"
-              className="w-20 h-20 object-cover border border-black grayscale contrast-125 mx-auto"
-            />
-            <div className="text-[9px] font-black tracking-wider uppercase mt-0.5">
-              PASS HOLDER PHOTO
-            </div>
-          </div>
-        )}
 
         <div className="border-t-2 border-black my-1.5"></div>
 

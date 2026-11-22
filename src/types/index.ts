@@ -13,7 +13,11 @@ export type EntryResult =
   | 'DAILY_LIMIT' 
   | 'COOLDOWN' 
   | 'UNPAID' 
-  | 'REJECTED';
+  | 'REJECTED'
+  | 'PHOTO_REQUIRED'
+  | 'BIOMETRIC_REQUIRED'
+  | 'BIOMETRIC_MISMATCH'
+  | 'ENROLLMENT_REQUIRED';
 
 export type UserRole = 'SUPER_ADMIN' | 'MANAGER' | 'COUNTER' | 'GATE';
 
@@ -117,14 +121,27 @@ export interface Ticket {
 
 export interface PassMember {
   id: string;
-  name: string;
-  relation: string; // 'Self' | 'Spouse' | 'Child' | 'Parent' | 'Other'
-  age?: number;
+  pass_id: string;
+  full_name: string;
+  relationship: string;
+  is_primary_holder: boolean;
   photo_url?: string;
-  biometric_id?: string;
+  photo_captured_at?: string;
+  status: 'ACTIVE' | 'PENDING' | 'INACTIVE';
+  enabled: boolean;
+  has_biometric?: boolean;
+  biometric_type?: 'FINGERPRINT' | 'WEBAUTHN' | 'FACIAL' | 'IRIS';
   biometric_template?: string;
   biometric_enrolled_at?: string;
+  biometric_quality?: number;
+  consent_recorded?: boolean;
+  guardian_consent_name?: string;
+  last_scanned_at?: string;
+  created_at?: string;
 }
+
+export type MaritalStatus = 'MARRIED' | 'UNMARRIED';
+export type PassEnrollmentStatus = 'DRAFT' | 'PENDING_ENROLLMENT' | 'ACTIVE' | 'BLOCKED';
 
 export interface Pass {
   id: string;
@@ -147,14 +164,14 @@ export interface Pass {
   updated_at: string;
   device_name?: string;
 
-  // Additional Member, Photo & Biometric fields
-  marital_status?: 'MARRIED' | 'UNMARRIED';
-  family_members_count?: number;
-  children_count?: number;
+  // Family & Biometric fields
+  marital_status?: MaritalStatus;
+  family_size?: number; // total family members including primary
+  children_count?: number; // total children in family
+  covered_members_count?: number; // members registered in this pass
+  enrollment_status?: PassEnrollmentStatus;
   photo_url?: string;
-  biometric_id?: string;
   members?: PassMember[];
-  members_json?: PassMember[];
 
   // Transient for printing
   qr_raw_token?: string;
@@ -163,12 +180,29 @@ export interface Pass {
   payment_method?: PaymentMethod;
 }
 
+export interface BiometricEnrollment {
+  id: string;
+  pass_id: string;
+  member_id: string;
+  biometric_type: 'FINGERPRINT' | 'WEBAUTHN' | 'FACIAL' | 'IRIS';
+  device_provider: string;
+  template_data: string;
+  template_hash: string;
+  quality_score: number;
+  status: 'ENROLLED' | 'REVOKED';
+  consent_recorded: boolean;
+  guardian_consent_name?: string;
+  enrolled_by?: string;
+  enrolled_at: string;
+}
+
 export interface EntryEvent {
   id: string;
   request_id: string;
   document_type: 'TICKET' | 'PASS';
   ticket_id?: string;
   pass_id?: string;
+  member_id?: string;
   gate_id?: string;
   scanned_by?: string;
   result: EntryResult;
@@ -176,10 +210,9 @@ export interface EntryEvent {
   reason?: string;
   scanned_at: string;
   device_name?: string;
-
-  // Gate Entry Photo & Biometric validation
   entry_photo_url?: string;
   biometric_verified?: boolean;
+  biometric_match_score?: number;
   biometric_member_id?: string;
   biometric_member_name?: string;
   
@@ -191,13 +224,18 @@ export interface EntryEvent {
 
 export interface VerificationResponse {
   success: boolean;
-  code: EntryResult;
+  code: EntryResult | 'PHOTO_REQUIRED' | 'BIOMETRIC_REQUIRED' | 'BIOMETRIC_MISMATCH' | 'ENROLLMENT_REQUIRED';
   document_type?: 'TICKET' | 'PASS';
   ticket_number?: string;
   pass_number?: string;
-  pass_id?: string;
   pass_type?: 'MONTHLY' | 'YEARLY' | 'FAMILY';
   holder_name?: string;
+  member_id?: string;
+  member_name?: string;
+  relationship?: string;
+  entry_photo_url?: string;
+  biometric_verified?: boolean;
+  match_score?: number;
   persons_admitted?: number;
   valid_from?: string;
   valid_through?: string;
@@ -207,18 +245,8 @@ export interface VerificationResponse {
   payment_method?: PaymentMethod | string;
   amount_inr?: string;
   message: string;
-
-  // Additional pass metadata for gate verification
-  marital_status?: 'MARRIED' | 'UNMARRIED';
-  family_members_count?: number;
-  children_count?: number;
-  photo_url?: string;
-  biometric_id?: string;
   members?: PassMember[];
-  members_json?: PassMember[];
-  biometric_verified?: boolean;
-  biometric_member_name?: string;
-  entry_photo_url?: string;
+  requires_member_selection?: boolean;
 }
 
 export interface AuthStaff {
