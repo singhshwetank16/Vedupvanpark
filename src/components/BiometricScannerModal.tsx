@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Fingerprint, X, CheckCircle2, ShieldCheck, RefreshCw, Smartphone } from 'lucide-react';
+import { sounds } from '../lib/audio';
 import {
   generateBiometricId,
   generateBiometricTemplate,
@@ -38,6 +39,7 @@ export const BiometricScannerModal: React.FC<BiometricScannerModalProps> = ({
 }) => {
   const [scanProgress, setScanProgress] = useState<number>(0);
   const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [selectedMemberIdx, setSelectedMemberIdx] = useState<number>(0);
   const [scanResult, setScanResult] = useState<{
     status: 'IDLE' | 'SUCCESS' | 'FAILED';
     message: string;
@@ -57,6 +59,7 @@ export const BiometricScannerModal: React.FC<BiometricScannerModalProps> = ({
       isWebAuthnAvailable().then(avail => setHasHardwareWebAuthn(avail));
       setScanProgress(0);
       setIsScanning(false);
+      setSelectedMemberIdx(0);
       setScanResult({ status: 'IDLE', message: '' });
     }
   }, [isOpen]);
@@ -104,11 +107,16 @@ export const BiometricScannerModal: React.FC<BiometricScannerModalProps> = ({
     setIsScanning(true);
     setScanProgress(0);
     setScanResult({ status: 'IDLE', message: 'Scanning fingerprint ridges & minutiae...' });
+    sounds.playScanBeep();
 
     let current = 0;
     const interval = setInterval(() => {
       current += 10;
       setScanProgress(Math.min(100, current));
+
+      if (current % 30 === 0) {
+        sounds.playScanBeep();
+      }
 
       if (current >= 100) {
         clearInterval(interval);
@@ -118,24 +126,27 @@ export const BiometricScannerModal: React.FC<BiometricScannerModalProps> = ({
           // Complete enrollment
           const bioId = generateBiometricId(memberName, memberIndex);
           const template = generateBiometricTemplate(`${memberName}-${bioId}`);
+          sounds.playSuccess();
           setScanResult({
             status: 'SUCCESS',
-            message: `Biometric Enrolled Successfully! ID: ${bioId}`,
+            message: `✓ Biometric Enrolled! ID: ${bioId}`,
             bioId,
           });
           setTimeout(() => {
             if (onEnrollSuccess) onEnrollSuccess(bioId, template);
             onClose();
-          }, 900);
+          }, 800);
         } else {
           // Verification mode at gate
-          const targetSeed = enrolledMembers[0]?.biometric_id || generateBiometricId(memberName, 1);
+          const activeTarget = enrolledMembers[selectedMemberIdx] || enrolledMembers[0];
+          const targetSeed = activeTarget?.biometric_id || generateBiometricId(memberName, 1);
           const matchRes = matchBiometricAgainstMembers(targetSeed, enrolledMembers);
 
           if (matchRes.isMatch && matchRes.matchedMember) {
+            sounds.playSuccess();
             setScanResult({
               status: 'SUCCESS',
-              message: `✓ Biometric Match: ${matchRes.matchedMember.name} (${matchRes.confidence}% Confidence)`,
+              message: `✓ Verified: ${matchRes.matchedMember.name} (${matchRes.confidence}% Match)`,
               matchedMember: matchRes.matchedMember,
               bioId: matchRes.matchedMember.biometric_id,
             });
@@ -146,6 +157,7 @@ export const BiometricScannerModal: React.FC<BiometricScannerModalProps> = ({
               onClose();
             }, 800);
           } else {
+            sounds.playError();
             const failReason = matchRes.reason || 'Fingerprint does not match any member of this pass.';
             setScanResult({
               status: 'FAILED',
@@ -169,9 +181,10 @@ export const BiometricScannerModal: React.FC<BiometricScannerModalProps> = ({
       if (res.success && res.credentialId) {
         const bioId = `WEB-BIO-${res.credentialId.slice(0, 12).toUpperCase()}`;
         const template = generateBiometricTemplate(res.credentialId);
+        sounds.playSuccess();
         setScanResult({
           status: 'SUCCESS',
-          message: 'Hardware Biometric (Touch ID/Windows Hello) Registered!',
+          message: 'Hardware Biometric Registered!',
           bioId,
         });
         setTimeout(() => {
@@ -179,14 +192,14 @@ export const BiometricScannerModal: React.FC<BiometricScannerModalProps> = ({
           onClose();
         }, 800);
       } else {
-        // Fallback to optical scan
         handleTriggerScan();
       }
     } else {
       const res = await verifyWebAuthnBiometric();
       setIsScanning(false);
       if (res.success && enrolledMembers.length > 0) {
-        const primary = enrolledMembers[0];
+        const primary = enrolledMembers[selectedMemberIdx] || enrolledMembers[0];
+        sounds.playSuccess();
         setScanResult({
           status: 'SUCCESS',
           message: `Hardware Biometric Verified: ${primary.name}`,
@@ -231,11 +244,46 @@ export const BiometricScannerModal: React.FC<BiometricScannerModalProps> = ({
           </button>
         </div>
 
+        {/* In VERIFY mode: Show member selection list if more than 1 member */}
+        {mode === 'VERIFY' && enrolledMembers.length > 1 && (
+          <div className="px-4 pt-3 space-y-1">
+            <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block">
+              Who is entering right now?
+            </span>
+            <div className="grid grid-cols-2 gap-1.5">
+              {enrolledMembers.map((m, idx) => (
+                <button
+                  key={m.id || idx}
+                  type="button"
+                  onClick={() => setSelectedMemberIdx(idx)}
+                  className={`p-1.5 rounded-xl border text-left flex items-center gap-2 transition cursor-pointer ${
+                    selectedMemberIdx === idx
+                      ? 'bg-emerald-600/30 border-emerald-400 text-white shadow-xs'
+                      : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  {m.photo_url ? (
+                    <img src={m.photo_url} alt="" className="w-6 h-6 rounded-lg object-cover border border-emerald-400" />
+                  ) : (
+                    <div className="w-6 h-6 rounded-lg bg-emerald-800 flex items-center justify-center text-[10px] font-bold">
+                      {idx + 1}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[11px] font-bold truncate leading-tight">{m.name || `Member ${idx + 1}`}</div>
+                    <div className="text-[9px] text-emerald-300 font-medium">{m.relation}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Optical Fingerprint Scanner Sensor Pad */}
         <div className="p-5 space-y-4 text-center">
           <div
             onClick={handleTriggerScan}
-            className="relative cursor-pointer group mx-auto w-48 h-56 rounded-3xl overflow-hidden bg-slate-950 border-2 border-emerald-500/40 shadow-[0_0_30px_rgba(16,185,129,0.2)] hover:border-emerald-400 transition-all flex flex-col items-center justify-center select-none active:scale-98"
+            className="relative cursor-pointer group mx-auto w-48 h-56 rounded-3xl overflow-hidden bg-slate-950 border-2 border-emerald-500/40 shadow-[0_0_30px_rgba(16,185,129,0.25)] hover:border-emerald-400 transition-all flex flex-col items-center justify-center select-none active:scale-98"
           >
             <canvas ref={canvasRef} width={192} height={224} className="w-full h-full object-cover" />
 
@@ -244,7 +292,7 @@ export const BiometricScannerModal: React.FC<BiometricScannerModalProps> = ({
               <span className="text-[9px] font-mono tracking-widest text-emerald-400/60 uppercase">
                 OPTICAL SENSOR
               </span>
-              <span className="text-[9px] font-bold text-emerald-300/80 bg-black/50 px-2 py-0.5 rounded-full">
+              <span className="text-[9px] font-bold text-emerald-300/90 bg-black/70 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
                 {isScanning ? 'SCANNING...' : 'TAP SENSOR TO SCAN'}
               </span>
             </div>

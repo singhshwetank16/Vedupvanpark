@@ -1187,7 +1187,30 @@ class VupDatabaseService {
       throw new Error('Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9.');
     }
 
-    // 1. Strict validation: No duplicate active pass until existing pass validity expires
+    // 1. Strict validation: Photo and Biometric are mandatory before saving pass
+    const effectiveBioId = params.biometric_id || (params.members && params.members[0]?.biometric_id);
+    if (!effectiveBioId || !effectiveBioId.trim()) {
+      throw new Error('Biometric Fingerprint scan is strictly mandatory! Pass cannot be generated or saved without biometric enrollment.');
+    }
+
+    const effectivePhotoUrl = params.photo_url || (params.members && params.members[0]?.photo_url);
+    if (!effectivePhotoUrl || !effectivePhotoUrl.trim()) {
+      throw new Error('Pass holder photo is mandatory! Pass cannot be generated or saved without photo capture.');
+    }
+
+    if (params.members && params.members.length > 0) {
+      for (let i = 0; i < params.members.length; i++) {
+        const m = params.members[i];
+        if (!m.biometric_id || !m.biometric_id.trim()) {
+          throw new Error(`Member ${i + 1} (${m.name || m.relation}) biometric fingerprint is missing! Every person on the pass must have biometric enrolled before saving.`);
+        }
+        if (!m.photo_url || !m.photo_url.trim()) {
+          throw new Error(`Member ${i + 1} (${m.name || m.relation}) photo is missing! Every person on the pass must have photo captured before saving.`);
+        }
+      }
+    }
+
+    // 2. Strict validation: No duplicate active pass until existing pass validity expires
     const existingActivePass = await this.checkActivePassByPhone(cleanPhone);
     if (existingActivePass) {
       throw new Error(
@@ -1604,21 +1627,38 @@ class VupDatabaseService {
       return passes.find(p => p.status === 'ACTIVE' && todayYmd >= p.valid_from && todayYmd <= p.valid_through) || passes[0] || null;
     }
 
+    const scannedHash = await computeSha256(trimmed);
+
+    let extractedDocNum: string | null = null;
+    if (trimmed.includes('VUP-')) {
+      const match = trimmed.match(/VUP-[TMYF]-\d+-\d+/);
+      if (match) extractedDocNum = match[0];
+    }
+
     // Try finding by pass_number or token in local
     const local = this.getLocalPasses();
     const localMatch = local.find(p =>
       p.pass_number === trimmed ||
       p.qr_raw_token === trimmed ||
-      p.qr_token_sha256 === trimmed
+      p.qr_token_sha256 === scannedHash ||
+      p.qr_token_sha256 === trimmed ||
+      (extractedDocNum && p.pass_number === extractedDocNum)
     );
     if (localMatch) return localMatch;
 
     if (this.supabase) {
       try {
+        const filterParts = [
+          `pass_number.eq.${trimmed}`,
+          `qr_token_sha256.eq.${scannedHash}`,
+          `qr_token_sha256.eq.${trimmed}`
+        ];
+        if (extractedDocNum) filterParts.push(`pass_number.eq.${extractedDocNum}`);
+
         const { data } = await this.supabase
           .from('passes')
           .select('*')
-          .or(`pass_number.eq.${trimmed},qr_token_sha256.eq.${trimmed}`)
+          .or(filterParts.join(','))
           .limit(1);
         if (data && data.length > 0) {
           const p = data[0];

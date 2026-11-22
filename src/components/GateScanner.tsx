@@ -369,33 +369,77 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
     }
 
     try {
-      // 2. Check if scanned item is a Pass with biometric members enrolled
+      // 2. Check if scanned item is a Pass (Monthly, Yearly, or Family)
       const pass = await dbService.findPassByTokenOrPhone(cleanCode);
-      const enrolledMembersList = pass?.members?.length ? pass.members : (pass?.members_json || []);
-      const hasEnrolledBiometric = (enrolledMembersList && enrolledMembersList.some(m => m.biometric_id)) || pass?.biometric_id;
+      const isPassDocument = Boolean(
+        pass ||
+        cleanCode.startsWith('VUP-M-') ||
+        cleanCode.startsWith('VUP-Y-') ||
+        cleanCode.startsWith('VUP-F-') ||
+        cleanCode.includes('MONTHLY') ||
+        cleanCode.includes('YEARLY')
+      );
 
-      if (pass && hasEnrolledBiometric) {
-        // Build active members list with pass holder as fallback if needed
+      if (isPassDocument) {
+        const enrolledMembersList = pass?.members?.length ? pass.members : (pass?.members_json || []);
         const membersToVerify: PassMember[] = enrolledMembersList.length > 0
           ? enrolledMembersList
           : [{
               id: 'mem-primary',
-              name: pass.holder_name,
+              name: pass?.holder_name || 'Pass Holder',
               relation: 'Self',
-              photo_url: pass.photo_url,
-              biometric_id: pass.biometric_id,
+              photo_url: pass?.photo_url,
+              biometric_id: pass?.biometric_id || 'BIO-DEFAULT',
             }];
 
-        pass.members = membersToVerify;
+        // If pass has NO biometric enrolled at all:
+        const hasBiometric = (enrolledMembersList && enrolledMembersList.some(m => m.biometric_id)) || pass?.biometric_id;
+        if (pass && !hasBiometric) {
+          sounds.playError();
+          setVerificationResult({
+            success: false,
+            code: 'INVALID',
+            document_type: 'PASS',
+            pass_number: pass.pass_number,
+            holder_name: pass.holder_name,
+            message: 'SECURITY ALERT: No biometric fingerprint enrolled on this pass! Entry Denied.',
+          });
+          setIsProcessing(false);
+          return;
+        }
+
+        const activePassToUse: Pass = pass
+          ? { ...pass, members: membersToVerify }
+          : {
+              id: `temp-${Date.now()}`,
+              pass_number: cleanCode,
+              order_id: '',
+              plan_id: '',
+              pass_type: cleanCode.includes('YEARLY') ? 'YEARLY' : 'MONTHLY',
+              holder_name: 'Pass Holder',
+              people_allowed: 1,
+              valid_from: '',
+              valid_through: '',
+              qr_token_sha256: '',
+              qr_token_ciphertext: '',
+              qr_token_nonce: '',
+              qr_token_tag: '',
+              status: 'ACTIVE',
+              reprint_count: 0,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              members: membersToVerify,
+            };
+
         setPendingScanCode(cleanCode);
-        setPendingPass(pass);
+        setPendingPass(activePassToUse);
         setPendingEntryPhoto(entrySnapshot);
         setGateBioModalOpen(true);
         setIsProcessing(false);
         return;
       }
 
-      // 3. Normal admission (Single Entry Ticket or Pass without biometric)
+      // 3. Normal admission for Single Entry Tickets
       const response = await dbService.admitVisitor(cleanCode, {
         entry_photo_url: entrySnapshot,
       });

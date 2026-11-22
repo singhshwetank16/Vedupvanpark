@@ -342,6 +342,28 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
     };
   }, [members]);
 
+  // Check if all members have both photo and biometric enrolled
+  const isBiometricReady = useMemo(() => {
+    if (!members || members.length === 0) return false;
+    return members.every(m => Boolean(m.biometric_id && m.biometric_id.trim()));
+  }, [members]);
+
+  const isPhotoReady = useMemo(() => {
+    if (!members || members.length === 0) return false;
+    return members.every(m => Boolean(m.photo_url && m.photo_url.trim()));
+  }, [members]);
+
+  const isFormReadyToSubmit = useMemo(() => {
+    return (
+      Boolean(holderName.trim()) &&
+      phoneValidation.isValid &&
+      existingActivePass === null &&
+      isBiometricReady &&
+      isPhotoReady &&
+      membersValidation.isValid
+    );
+  }, [holderName, phoneValidation.isValid, existingActivePass, isBiometricReady, isPhotoReady, membersValidation.isValid]);
+
   const handleGeneratePass = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!holderName.trim()) {
@@ -374,17 +396,21 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
     }
 
     // Biometric & Photo validation
-    if (!members[0]?.photo_url) {
-      setActiveMemberIdx(0);
+    if (!isPhotoReady) {
+      const missingIdx = members.findIndex(m => !m.photo_url);
+      const targetIdx = missingIdx !== -1 ? missingIdx : 0;
+      setActiveMemberIdx(targetIdx);
       setCameraModalOpen(true);
-      alert('Live Photo Capture Required! Please take a photo of the pass holder.');
+      alert(`PHOTO CAPTURE REQUIRED!\n\nPlease capture photo for Member ${targetIdx + 1} (${members[targetIdx]?.name || members[targetIdx]?.relation || 'Member'}). Pass cannot be saved without photos.`);
       return;
     }
 
-    if (!members[0]?.biometric_id) {
-      setActiveMemberIdx(0);
+    if (!isBiometricReady) {
+      const missingIdx = members.findIndex(m => !m.biometric_id);
+      const targetIdx = missingIdx !== -1 ? missingIdx : 0;
+      setActiveMemberIdx(targetIdx);
       setBiometricModalOpen(true);
-      alert('Biometric Fingerprint Enrollment Required! Please scan the pass holder fingerprint.');
+      alert(`BIOMETRIC SCAN MANDATORY!\n\nPass CANNOT be saved without biometric scan.\n\nPlease scan fingerprint on the sensor for Member ${targetIdx + 1} (${members[targetIdx]?.name || members[targetIdx]?.relation || 'Member'}).`);
       return;
     }
 
@@ -889,11 +915,11 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                                 setActiveMemberIdx(idx);
                                 setBiometricModalOpen(true);
                               }}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-xs cursor-pointer transition"
+                              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs flex items-center gap-1.5 shadow-sm cursor-pointer transition"
                               title="Re-enroll biometric"
                             >
-                              <Fingerprint className="w-3 h-3" />
-                              <span>Finger Enrolled ✓</span>
+                              <Fingerprint className="w-3.5 h-3.5" />
+                              <span>✓ Finger Enrolled</span>
                             </button>
                           ) : (
                             <button
@@ -902,10 +928,10 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                                 setActiveMemberIdx(idx);
                                 setBiometricModalOpen(true);
                               }}
-                              className="px-2.5 py-1 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-[10px] flex items-center gap-1 cursor-pointer transition"
+                              className="px-3 py-1.5 rounded-xl border-2 border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-950 font-black text-xs flex items-center gap-1.5 cursor-pointer transition shadow-xs animate-pulse ring-2 ring-amber-300/40"
                             >
-                              <Fingerprint className="w-3 h-3 text-amber-600" />
-                              <span>Scan Finger</span>
+                              <Fingerprint className="w-3.5 h-3.5 text-amber-600" />
+                              <span>🖐️ Scan Fingerprint *</span>
                             </button>
                           )}
                         </div>
@@ -1029,22 +1055,28 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
 
               <button
                 type="submit"
-                disabled={isGenerating || !phoneValidation.isValid || existingActivePass !== null}
-                className="w-full xs:w-auto px-5 sm:px-6 py-2.5 sm:py-3 bg-white hover:bg-emerald-50 active:scale-95 text-emerald-950 font-black rounded-xl shadow-lg shadow-black/20 flex items-center justify-center gap-1.5 text-xs sm:text-sm disabled:opacity-50 transition cursor-pointer shrink-0"
+                disabled={isGenerating || !isFormReadyToSubmit}
+                className={`w-full xs:w-auto px-5 sm:px-6 py-2.5 sm:py-3 font-black rounded-xl shadow-lg flex items-center justify-center gap-2 text-xs sm:text-sm transition cursor-pointer shrink-0 ${
+                  isFormReadyToSubmit
+                    ? 'bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-white shadow-emerald-950/40 hover:brightness-110 active:scale-95 ring-2 ring-emerald-300'
+                    : 'bg-slate-200 text-slate-500 cursor-not-allowed opacity-75 border border-slate-300'
+                }`}
               >
-                <Printer className="w-4 h-4 text-emerald-700" />
+                <Printer className="w-4 h-4" />
                 <span>
                   {isGenerating
                     ? 'Generating...'
                     : existingActivePass
                       ? 'Active Pass Exists'
-                      : !phoneValidation.isValid
-                        ? 'Enter 10-Digit Mobile'
-                        : !members[0]?.photo_url
-                          ? 'Capture Photo *'
-                          : !members[0]?.biometric_id
-                            ? 'Scan Fingerprint *'
-                            : 'Issue & Print Pass'}
+                      : !holderName.trim()
+                        ? 'Enter Pass Holder Name *'
+                        : !phoneValidation.isValid
+                          ? 'Enter 10-Digit Mobile *'
+                          : !isPhotoReady
+                            ? '📸 Take Photo to Enable Save *'
+                            : !isBiometricReady
+                              ? '🖐️ Scan Biometric to Enable Save *'
+                              : 'Issue & Print Pass (Biometric Secured)'}
                 </span>
               </button>
             </div>
