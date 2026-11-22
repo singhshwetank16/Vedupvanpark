@@ -550,3 +550,34 @@ GRANT EXECUTE ON FUNCTION vup.admit_visitor(CHAR(64), TEXT, UUID) TO anon, authe
 GRANT EXECUTE ON FUNCTION vup.next_document_number(TEXT, DATE) TO anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA vup TO anon, authenticated, service_role;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA vup TO anon, authenticated, service_role;
+
+
+-- =========================================================================
+-- MIGRATION: SUBSCRIPTION PASS PHOTO, BIOMETRICS & FAMILY MEMBERS
+-- =========================================================================
+
+-- 1. Passes table columns
+ALTER TABLE vup.passes ADD COLUMN IF NOT EXISTS marital_status TEXT DEFAULT 'UNMARRIED';
+ALTER TABLE vup.passes ADD COLUMN IF NOT EXISTS family_members_count INTEGER DEFAULT 1;
+ALTER TABLE vup.passes ADD COLUMN IF NOT EXISTS children_count INTEGER DEFAULT 0;
+ALTER TABLE vup.passes ADD COLUMN IF NOT EXISTS photo_url TEXT;
+ALTER TABLE vup.passes ADD COLUMN IF NOT EXISTS biometric_id TEXT;
+ALTER TABLE vup.passes ADD COLUMN IF NOT EXISTS members_json JSONB DEFAULT '[]'::jsonb;
+
+-- 2. Pass members table columns
+ALTER TABLE vup.pass_members ADD COLUMN IF NOT EXISTS relation TEXT DEFAULT 'Self';
+ALTER TABLE vup.pass_members ADD COLUMN IF NOT EXISTS age INTEGER;
+ALTER TABLE vup.pass_members ADD COLUMN IF NOT EXISTS photo_url TEXT;
+ALTER TABLE vup.pass_members ADD COLUMN IF NOT EXISTS biometric_id TEXT;
+ALTER TABLE vup.pass_members ADD COLUMN IF NOT EXISTS biometric_template TEXT;
+
+-- 3. Entry events table columns
+ALTER TABLE vup.entry_events ADD COLUMN IF NOT EXISTS entry_photo_url TEXT;
+ALTER TABLE vup.entry_events ADD COLUMN IF NOT EXISTS biometric_verified BOOLEAN DEFAULT false;
+ALTER TABLE vup.entry_events ADD COLUMN IF NOT EXISTS biometric_member_id TEXT;
+ALTER TABLE vup.entry_events ADD COLUMN IF NOT EXISTS biometric_member_name TEXT;
+
+-- 4. Expose columns in public views
+CREATE OR REPLACE VIEW public.passes AS SELECT * FROM vup.passes;
+CREATE OR REPLACE VIEW public.entry_events AS SELECT * FROM vup.entry_events;
+CREATE OR REPLACE VIEW public.pass_members AS SELECT * FROM vup.pass_members;

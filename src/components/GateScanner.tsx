@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { dbService } from '../lib/supabase';
 import { sounds } from '../lib/audio';
-import type { VerificationResponse, AppConfig } from '../types';
+import { BiometricScannerModal } from './BiometricScannerModal';
+import type { VerificationResponse, AppConfig, Pass, PassMember } from '../types';
 import {
   Camera,
   CheckCircle2,
@@ -18,7 +19,8 @@ import {
   Clock,
   Phone,
   Search,
-  Smartphone
+  Smartphone,
+  Fingerprint
 } from 'lucide-react';
 import { LOGO_URL } from '../assets/logo';
 
@@ -101,6 +103,12 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
   const [isScanLocked, setIsScanLocked] = useState<boolean>(false);
   const [phoneInput, setPhoneInput] = useState<string>('');
   const [isPhoneValidating, setIsPhoneValidating] = useState<boolean>(false);
+
+  // Biometric gate verification modal state
+  const [gateBioModalOpen, setGateBioModalOpen] = useState(false);
+  const [pendingScanCode, setPendingScanCode] = useState<string>('');
+  const [pendingPass, setPendingPass] = useState<Pass | null>(null);
+  const [pendingEntryPhoto, setPendingEntryPhoto] = useState<string | undefined>(undefined);
 
   const scanLockedRef = useRef<boolean>(false);
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
@@ -321,14 +329,36 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
     setScannerActive(false);
   };
 
+  const captureGateSnapshot = (): string | undefined => {
+    try {
+      const container = document.getElementById(scannerContainerId);
+      const video = container?.querySelector('video');
+      if (video && video.videoWidth > 0 && video.videoHeight > 0) {
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.min(640, video.videoWidth);
+        canvas.height = Math.round((canvas.width / video.videoWidth) * video.videoHeight);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          return canvas.toDataURL('image/jpeg', 0.82);
+        }
+      }
+    } catch (e) {
+      console.warn('Gate snapshot capture failed:', e);
+    }
+    return undefined;
+  };
+
   const handleScannedCode = async (rawCode: string) => {
     const cleanCode = rawCode.trim();
     if (!cleanCode || isProcessing || scanLockedRef.current) return;
 
-    // 1. Immediately lock scanning in software & freeze video stream
+    // 1. Immediately lock scanning in software & capture gate snapshot
     scanLockedRef.current = true;
     setIsScanLocked(true);
     setIsProcessing(true);
+
+    const entrySnapshot = captureGateSnapshot();
 
     try {
       if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
@@ -339,7 +369,36 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
     }
 
     try {
-      const response = await dbService.admitVisitor(cleanCode);
+      // 2. Check if scanned item is a Pass with biometric members enrolled
+      const pass = await dbService.findPassByTokenOrPhone(cleanCode);
+      const enrolledMembersList = pass?.members?.length ? pass.members : (pass?.members_json || []);
+      const hasEnrolledBiometric = (enrolledMembersList && enrolledMembersList.some(m => m.biometric_id)) || pass?.biometric_id;
+
+      if (pass && hasEnrolledBiometric) {
+        // Build active members list with pass holder as fallback if needed
+        const membersToVerify: PassMember[] = enrolledMembersList.length > 0
+          ? enrolledMembersList
+          : [{
+              id: 'mem-primary',
+              name: pass.holder_name,
+              relation: 'Self',
+              photo_url: pass.photo_url,
+              biometric_id: pass.biometric_id,
+            }];
+
+        pass.members = membersToVerify;
+        setPendingScanCode(cleanCode);
+        setPendingPass(pass);
+        setPendingEntryPhoto(entrySnapshot);
+        setGateBioModalOpen(true);
+        setIsProcessing(false);
+        return;
+      }
+
+      // 3. Normal admission (Single Entry Ticket or Pass without biometric)
+      const response = await dbService.admitVisitor(cleanCode, {
+        entry_photo_url: entrySnapshot,
+      });
       setVerificationResult(response);
       refreshScanSummary();
 
@@ -359,6 +418,56 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleGateBioVerifySuccess = async (matchedMember: PassMember, bioId: string) => {
+    setGateBioModalOpen(false);
+    setIsProcessing(true);
+
+    try {
+      const response = await dbService.admitVisitor(pendingScanCode, {
+        biometric_id: bioId,
+        biometric_member_name: matchedMember.name,
+        entry_photo_url: pendingEntryPhoto,
+      });
+
+      setVerificationResult(response);
+      refreshScanSummary();
+
+      if (response.success) {
+        sounds.playSuccess();
+      } else {
+        sounds.playError();
+      }
+    } catch (e) {
+      sounds.playError();
+      setVerificationResult({
+        success: false,
+        code: 'INVALID',
+        message: 'Gate validation failed. Please check connection.',
+      });
+    } finally {
+      setIsProcessing(false);
+      setPendingPass(null);
+      setPendingScanCode('');
+      setPendingEntryPhoto(undefined);
+    }
+  };
+
+  const handleGateBioVerifyFailed = (reason: string) => {
+    setGateBioModalOpen(false);
+    sounds.playError();
+    setVerificationResult({
+      success: false,
+      code: 'REJECTED',
+      document_type: 'PASS',
+      pass_number: pendingPass?.pass_number,
+      holder_name: pendingPass?.holder_name,
+      message: `BIOMETRIC VERIFICATION FAILED: ${reason}`,
+    });
+    setPendingPass(null);
+    setPendingScanCode('');
+    setPendingEntryPhoto(undefined);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -389,37 +498,9 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
     if (cleanPhone.length !== 10 || isPhoneValidating) return;
 
     setIsPhoneValidating(true);
-    scanLockedRef.current = true;
-    setIsScanLocked(true);
-
     try {
-      if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-        html5QrCodeRef.current.pause(true);
-      }
-    } catch (err) {
-      console.warn('Camera pause error during phone validate:', err);
-    }
-
-    try {
-      const response = await dbService.admitPassByPhone(cleanPhone);
-      setVerificationResult(response);
-      refreshScanSummary();
-
-      if (response.success) {
-        sounds.playSuccess();
-        setPhoneInput('');
-      } else {
-        sounds.playError();
-      }
-    } catch (err) {
-      console.error('Phone pass validation error:', err);
-      sounds.playError();
-      setVerificationResult({
-        success: false,
-        code: 'INVALID',
-        document_type: 'PASS',
-        message: `Failed to validate pass for mobile number ${cleanPhone}. Please verify connection.`,
-      });
+      await handleScannedCode(cleanPhone);
+      setPhoneInput('');
     } finally {
       setIsPhoneValidating(false);
     }
@@ -520,13 +601,56 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
                   </div>
                 </div>
 
-                {/* Pass Holder Name if present */}
+                {/* Pass Holder Name & Biometric Details if present */}
                 {verificationResult.holder_name && (
                   <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
                     <span className="text-slate-500 font-semibold">Pass Holder:</span>
                     <span className="font-black text-slate-900 truncate max-w-[200px]">
                       {verificationResult.holder_name}
                     </span>
+                  </div>
+                )}
+
+                {/* Biometric Verified Member Badge */}
+                {verificationResult.biometric_verified && (
+                  <div className="mt-2 p-2 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
+                    <span className="text-emerald-800 font-bold flex items-center gap-1">
+                      <Fingerprint className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Biometric Verified Member:</span>
+                    </span>
+                    <span className="font-black text-emerald-950 bg-white px-2 py-0.5 rounded border border-emerald-300">
+                      {verificationResult.biometric_member_name || verificationResult.holder_name} ✓
+                    </span>
+                  </div>
+                )}
+
+                {/* Photos Row: Registered Photo & Gate Entry Snapshot */}
+                {(verificationResult.photo_url || verificationResult.entry_photo_url) && (
+                  <div className="mt-2.5 pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-center">
+                    {verificationResult.photo_url && (
+                      <div className="bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+                        <span className="block text-[9px] font-black uppercase tracking-wider text-slate-500 mb-1">
+                          Registered Photo
+                        </span>
+                        <img
+                          src={verificationResult.photo_url}
+                          alt="Enrolled"
+                          className="w-16 h-16 mx-auto rounded-lg object-cover border border-slate-300 shadow-2xs"
+                        />
+                      </div>
+                    )}
+                    {verificationResult.entry_photo_url && (
+                      <div className="bg-emerald-50/60 p-1.5 rounded-xl border border-emerald-200">
+                        <span className="block text-[9px] font-black uppercase tracking-wider text-emerald-700 mb-1">
+                          Gate Live Photo
+                        </span>
+                        <img
+                          src={verificationResult.entry_photo_url}
+                          alt="Gate Entry"
+                          className="w-16 h-16 mx-auto rounded-lg object-cover border border-emerald-400 shadow-2xs"
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -871,6 +995,39 @@ export const GateScanner: React.FC<GateScannerProps> = ({ config }) => {
           </div>
         </div>
       </div>
+
+      {/* Gate Entry Biometric Verification Modal */}
+      {pendingPass && (
+        <BiometricScannerModal
+          isOpen={gateBioModalOpen}
+          onClose={() => {
+            setGateBioModalOpen(false);
+            setIsProcessing(false);
+            setPendingPass(null);
+            setPendingScanCode('');
+            setPendingEntryPhoto(undefined);
+            scanLockedRef.current = false;
+            setIsScanLocked(false);
+          }}
+          mode="VERIFY"
+          memberName={pendingPass.holder_name}
+          enrolledMembers={
+            pendingPass.members?.length
+              ? pendingPass.members
+              : (pendingPass.members_json?.length
+                  ? pendingPass.members_json
+                  : [{
+                      id: 'mem-primary',
+                      name: pendingPass.holder_name,
+                      relation: 'Self',
+                      photo_url: pendingPass.photo_url,
+                      biometric_id: pendingPass.biometric_id,
+                    }])
+          }
+          onVerifySuccess={handleGateBioVerifySuccess}
+          onVerifyFailed={handleGateBioVerifyFailed}
+        />
+      )}
     </div>
   );
 };

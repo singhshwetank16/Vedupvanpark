@@ -3,6 +3,7 @@ import type {
   AppConfig,
   Ticket,
   Pass,
+  PassMember,
   Order,
   Plan,
   EntryEvent,
@@ -157,8 +158,8 @@ class VupDatabaseService {
 
     const currentStaff = this.getCurrentStaff();
     // Target administrator identifier: if current user is SUPER_ADMIN, use their email; otherwise use 'admin'
-    const targetAdminIdentifier = (currentStaff && currentStaff.role === 'SUPER_ADMIN') 
-      ? currentStaff.email 
+    const targetAdminIdentifier = (currentStaff && currentStaff.role === 'SUPER_ADMIN')
+      ? currentStaff.email
       : 'admin';
 
     // 1. Verify directly against Supabase database Administrator account
@@ -196,10 +197,10 @@ class VupDatabaseService {
 
     // 2. Offline Fallback (ONLY when Supabase is completely unreachable)
     const staffList = await this.fetchStaffList();
-    const adminUser = staffList.find(s => 
+    const adminUser = staffList.find(s =>
       (currentStaff?.role === 'SUPER_ADMIN' && s.id === currentStaff.id) ||
-      s.role === 'SUPER_ADMIN' || 
-      s.email.toLowerCase() === 'admin' || 
+      s.role === 'SUPER_ADMIN' ||
+      s.email.toLowerCase() === 'admin' ||
       s.email.toLowerCase().startsWith('admin@')
     );
     if (!adminUser) return false;
@@ -456,12 +457,12 @@ class VupDatabaseService {
     const matchedStaff = staffList.find(s => {
       const email = s.email.toLowerCase();
       const user = email.split('@')[0];
-      return email === cleanEmail || 
-             user === cleanEmail || 
-             user === cleanUsername || 
-             s.id === cleanEmail || 
-             email === `${cleanUsername}@vedupvan.local` ||
-             `${user}@vedupvan.local` === cleanEmail;
+      return email === cleanEmail ||
+        user === cleanEmail ||
+        user === cleanUsername ||
+        s.id === cleanEmail ||
+        email === `${cleanUsername}@vedupvan.local` ||
+        `${user}@vedupvan.local` === cleanEmail;
     });
 
     if (!matchedStaff) {
@@ -1173,6 +1174,12 @@ class VupDatabaseService {
     payment_method: PaymentMethod;
     duration_days?: number;
     price_paise?: number;
+    marital_status?: 'MARRIED' | 'UNMARRIED';
+    family_members_count?: number;
+    children_count?: number;
+    photo_url?: string;
+    biometric_id?: string;
+    members?: PassMember[];
   }): Promise<Pass> {
     // 0. Strict validation: Mobile number is mandatory (valid 10 digits starting with 6-9)
     const cleanPhone = (params.holder_phone || '').replace(/\D/g, '').slice(-10);
@@ -1268,6 +1275,13 @@ class VupDatabaseService {
       amount_paise: amountPaise,
       payment_method: params.payment_method,
       device_name: getSystemDeviceInfo().deviceName,
+      marital_status: params.marital_status || 'UNMARRIED',
+      family_members_count: params.family_members_count || params.people_allowed || 1,
+      children_count: params.children_count || 0,
+      photo_url: params.photo_url || (params.members && params.members[0]?.photo_url),
+      biometric_id: params.biometric_id || (params.members && params.members[0]?.biometric_id),
+      members: params.members || [],
+      members_json: params.members || [],
     };
 
     if (this.supabase) {
@@ -1284,10 +1298,15 @@ class VupDatabaseService {
           p_qr_ciphertext: ciphertext,
           p_qr_nonce: nonce,
           p_qr_tag: tag,
-          p_members: [],
+          p_members: params.members || [],
           p_operator_id: this.getCurrentStaff()?.id || null,
           p_counter_code: this.config.counter_code,
           p_device_name: getSystemDeviceInfo().deviceName,
+          p_marital_status: params.marital_status || 'UNMARRIED',
+          p_family_members_count: params.family_members_count || params.people_allowed || 1,
+          p_children_count: params.children_count || 0,
+          p_photo_url: params.photo_url || (params.members && params.members[0]?.photo_url) || null,
+          p_biometric_id: params.biometric_id || (params.members && params.members[0]?.biometric_id) || null,
         });
 
         if (data && data.success === false) {
@@ -1335,6 +1354,12 @@ class VupDatabaseService {
         valid_from: validFromDate,
         valid_through: validThroughDate,
         payment_method: params.payment_method,
+        marital_status: newPass.marital_status,
+        family_members_count: newPass.family_members_count,
+        children_count: newPass.children_count,
+        has_photo: !!newPass.photo_url,
+        has_biometric: !!newPass.biometric_id,
+        members_count: (params.members || []).length,
       },
     });
 
@@ -1342,7 +1367,14 @@ class VupDatabaseService {
   }
 
   // 3. GATE ENTRY VALIDATION & BURNING (SECURE SHA-256 LOOKUP)
-  async admitVisitor(rawQrTokenOrText: string): Promise<VerificationResponse> {
+  async admitVisitor(
+    rawQrTokenOrText: string,
+    options?: {
+      biometric_id?: string;
+      entry_photo_url?: string;
+      biometric_member_name?: string;
+    }
+  ): Promise<VerificationResponse> {
     const trimmed = rawQrTokenOrText.trim();
     if (!trimmed) {
       return {
@@ -1355,7 +1387,7 @@ class VupDatabaseService {
     // 0. Auto-detect 10-digit mobile number input (e.g. guard typed 10 digits into scanner or barcode gun)
     const phoneDigits = trimmed.replace(/\D/g, '').slice(-10);
     if (phoneDigits.length === 10 && !trimmed.startsWith('VUP-') && trimmed.length <= 14) {
-      return this.admitPassByPhone(phoneDigits);
+      return this.admitPassByPhone(phoneDigits, options);
     }
 
     // Compute SHA-256 hash of scanned token
@@ -1369,6 +1401,9 @@ class VupDatabaseService {
           p_qr_token_hash: trimmed, // Sends raw QR token, ticket number, or hash
           p_gate_code: this.config.gate_code,
           p_request_id: requestId,
+          p_biometric_id: options?.biometric_id || null,
+          p_entry_photo_url: options?.entry_photo_url || null,
+          p_biometric_member_name: options?.biometric_member_name || null,
         });
 
         if (!error && data) {
@@ -1384,6 +1419,10 @@ class VupDatabaseService {
             document_number: res.ticket_number || res.pass_number,
             holder_name: res.holder_name,
             reason: res.message,
+            entry_photo_url: options?.entry_photo_url || res.entry_photo_url,
+            biometric_verified: options?.biometric_id ? true : res.biometric_verified,
+            biometric_member_id: options?.biometric_id,
+            biometric_member_name: options?.biometric_member_name || res.biometric_member_name,
           });
 
           const currentStaff = this.getCurrentStaff();
@@ -1396,7 +1435,7 @@ class VupDatabaseService {
             actor_name: currentStaff?.name || 'Gate Security',
             actor_email: currentStaff?.email || 'gate1@vedupvan.local',
             details_summary: res.success
-              ? `Entry Granted for ${res.persons_admitted || 1} Person(s) (${res.document_type || 'TICKET'})`
+              ? `Entry Granted for ${res.persons_admitted || 1} Person(s) (${res.document_type || 'TICKET'})${options?.biometric_member_name ? ` • Biometric: ${options.biometric_member_name}` : ''}`
               : `Scan Denied: ${res.message || res.code}`,
             after_json: {
               result: res.code,
@@ -1405,6 +1444,8 @@ class VupDatabaseService {
               holder_name: res.holder_name,
               reason: res.message,
               gate_code: this.config.gate_code,
+              biometric_verified: !!options?.biometric_id,
+              biometric_member: options?.biometric_member_name,
             },
           });
 
@@ -1418,7 +1459,7 @@ class VupDatabaseService {
     }
 
     // B. Local Deterministic Validation Engine (Conforms 100% to schema rules)
-    return this.admitVisitorLocal(trimmed, scannedHash, requestId);
+    return this.admitVisitorLocal(trimmed, scannedHash, requestId, options);
   }
 
   /**
@@ -1501,7 +1542,14 @@ class VupDatabaseService {
   /**
    * Validate and admit a pass holder using their registered 10-digit mobile number
    */
-  async admitPassByPhone(rawPhone: string): Promise<VerificationResponse> {
+  async admitPassByPhone(
+    rawPhone: string,
+    options?: {
+      biometric_id?: string;
+      entry_photo_url?: string;
+      biometric_member_name?: string;
+    }
+  ): Promise<VerificationResponse> {
     const cleanPhone = rawPhone.replace(/\D/g, '').slice(-10);
     if (cleanPhone.length !== 10) {
       return {
@@ -1538,10 +1586,64 @@ class VupDatabaseService {
     const activePass = passes.find(p => p.status === 'ACTIVE' && todayYmd >= p.valid_from && todayYmd <= p.valid_through) || passes[0];
 
     // Admit using the pass qr_token_sha256 or pass_number
-    return this.admitVisitor(activePass.qr_token_sha256 || activePass.pass_number);
+    return this.admitVisitor(activePass.qr_token_sha256 || activePass.pass_number, options);
   }
 
-  private admitVisitorLocal(rawToken: string, sha256: string, requestId: string): VerificationResponse {
+  /**
+   * Find pass by QR token, pass_number, or mobile phone without admitting yet
+   * Used by Gate scanner to check if biometric / member enrollment is required
+   */
+  async findPassByTokenOrPhone(rawInput: string): Promise<Pass | null> {
+    const trimmed = rawInput.trim();
+    if (!trimmed) return null;
+
+    const phoneDigits = trimmed.replace(/\D/g, '').slice(-10);
+    if (phoneDigits.length === 10 && !trimmed.startsWith('VUP-') && trimmed.length <= 14) {
+      const passes = await this.searchPassByPhone(phoneDigits);
+      const todayYmd = getTodayIstYmd();
+      return passes.find(p => p.status === 'ACTIVE' && todayYmd >= p.valid_from && todayYmd <= p.valid_through) || passes[0] || null;
+    }
+
+    // Try finding by pass_number or token in local
+    const local = this.getLocalPasses();
+    const localMatch = local.find(p =>
+      p.pass_number === trimmed ||
+      p.qr_raw_token === trimmed ||
+      p.qr_token_sha256 === trimmed
+    );
+    if (localMatch) return localMatch;
+
+    if (this.supabase) {
+      try {
+        const { data } = await this.supabase
+          .from('passes')
+          .select('*')
+          .or(`pass_number.eq.${trimmed},qr_token_sha256.eq.${trimmed}`)
+          .limit(1);
+        if (data && data.length > 0) {
+          const p = data[0];
+          return {
+            ...p,
+            members: p.members_json || [],
+          } as Pass;
+        }
+      } catch (e) {
+        console.warn('findPassByTokenOrPhone db error:', e);
+      }
+    }
+    return null;
+  }
+
+  private admitVisitorLocal(
+    rawToken: string,
+    sha256: string,
+    requestId: string,
+    options?: {
+      biometric_id?: string;
+      entry_photo_url?: string;
+      biometric_member_name?: string;
+    }
+  ): VerificationResponse {
     const now = new Date();
     const todayYmd = getTodayIstYmd();
     const currentStaff = this.getCurrentStaff();
@@ -1766,6 +1868,10 @@ class VupDatabaseService {
         scanned_at: now.toISOString(),
         document_number: pass.pass_number,
         holder_name: pass.holder_name,
+        entry_photo_url: options?.entry_photo_url,
+        biometric_verified: options?.biometric_id ? true : false,
+        biometric_member_id: options?.biometric_id,
+        biometric_member_name: options?.biometric_member_name,
       });
 
       this.logAuditEvent({
@@ -1774,13 +1880,15 @@ class VupDatabaseService {
         entity_id: pass.pass_number,
         actor_name: currentStaff?.name || 'Gate Security',
         actor_email: currentStaff?.email || 'gate1@vedupvan.local',
-        details_summary: `Entry Granted for ${pass.people_allowed} Person(s) (${pass.holder_name})`,
+        details_summary: `Entry Granted for ${pass.people_allowed} Person(s) (${pass.holder_name})${options?.biometric_member_name ? ` • Biometric: ${options.biometric_member_name}` : ''}`,
         after_json: {
           pass_number: pass.pass_number,
           holder_name: pass.holder_name,
           people_allowed: pass.people_allowed,
           valid_through: pass.valid_through,
           gate_code: this.config.gate_code,
+          biometric_verified: !!options?.biometric_id,
+          biometric_member: options?.biometric_member_name,
         },
       });
 
@@ -1788,12 +1896,23 @@ class VupDatabaseService {
         success: true,
         code: 'SUCCESS',
         document_type: 'PASS',
+        pass_id: pass.id,
         pass_number: pass.pass_number,
         pass_type: pass.pass_type,
         holder_name: pass.holder_name,
         persons_admitted: pass.people_allowed,
         valid_through: pass.valid_through,
-        message: `PASS VERIFIED! Welcome ${pass.holder_name} (${pass.people_allowed} Person(s) allowed).`,
+        marital_status: pass.marital_status,
+        family_members_count: pass.family_members_count,
+        children_count: pass.children_count,
+        photo_url: pass.photo_url,
+        biometric_id: pass.biometric_id,
+        members: pass.members || pass.members_json || [],
+        members_json: pass.members || pass.members_json || [],
+        biometric_verified: options?.biometric_id ? true : false,
+        biometric_member_name: options?.biometric_member_name,
+        entry_photo_url: options?.entry_photo_url,
+        message: `PASS VERIFIED! Welcome ${options?.biometric_member_name || pass.holder_name} (${pass.people_allowed} Person(s) allowed).`,
       };
     }
 
@@ -1897,6 +2016,10 @@ class VupDatabaseService {
       document_number: event.document_number,
       holder_name: event.holder_name,
       device_name: getSystemDeviceInfo().deviceName,
+      entry_photo_url: event.entry_photo_url,
+      biometric_verified: event.biometric_verified,
+      biometric_member_id: event.biometric_member_id,
+      biometric_member_name: event.biometric_member_name,
     };
     events.unshift(newEvent);
     localStorage.setItem('vup_entry_events', JSON.stringify(events.slice(0, 500)));

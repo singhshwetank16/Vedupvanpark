@@ -115,6 +115,17 @@ export interface Ticket {
   payment_method?: PaymentMethod;
 }
 
+export interface PassMember {
+  id: string;
+  name: string;
+  relation: string; // 'Self' | 'Spouse' | 'Child' | 'Parent' | 'Other'
+  age?: number;
+  photo_url?: string;
+  biometric_id?: string;
+  biometric_template?: string;
+  biometric_enrolled_at?: string;
+}
+
 export interface Pass {
   id: string;
   pass_number: string; // VUP-M-YYYYMMDD-000001 or VUP-F-YYYYMMDD-000001
@@ -136,6 +147,15 @@ export interface Pass {
   updated_at: string;
   device_name?: string;
 
+  // Additional Member, Photo & Biometric fields
+  marital_status?: 'MARRIED' | 'UNMARRIED';
+  family_members_count?: number;
+  children_count?: number;
+  photo_url?: string;
+  biometric_id?: string;
+  members?: PassMember[];
+  members_json?: PassMember[];
+
   // Transient for printing
   qr_raw_token?: string;
   plan_name?: string;
@@ -156,6 +176,12 @@ export interface EntryEvent {
   reason?: string;
   scanned_at: string;
   device_name?: string;
+
+  // Gate Entry Photo & Biometric validation
+  entry_photo_url?: string;
+  biometric_verified?: boolean;
+  biometric_member_id?: string;
+  biometric_member_name?: string;
   
   // Display helpers
   document_number?: string;
@@ -169,6 +195,7 @@ export interface VerificationResponse {
   document_type?: 'TICKET' | 'PASS';
   ticket_number?: string;
   pass_number?: string;
+  pass_id?: string;
   pass_type?: 'MONTHLY' | 'YEARLY' | 'FAMILY';
   holder_name?: string;
   persons_admitted?: number;
@@ -180,6 +207,18 @@ export interface VerificationResponse {
   payment_method?: PaymentMethod | string;
   amount_inr?: string;
   message: string;
+
+  // Additional pass metadata for gate verification
+  marital_status?: 'MARRIED' | 'UNMARRIED';
+  family_members_count?: number;
+  children_count?: number;
+  photo_url?: string;
+  biometric_id?: string;
+  members?: PassMember[];
+  members_json?: PassMember[];
+  biometric_verified?: boolean;
+  biometric_member_name?: string;
+  entry_photo_url?: string;
 }
 
 export interface AuthStaff {

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import type { Pass, AppConfig, PaymentMethod } from '../types';
+import type { Pass, AppConfig, PaymentMethod, PassMember } from '../types';
 import { dbService } from '../lib/supabase';
 import { printerService } from '../lib/printer';
+import { CameraCaptureModal } from './CameraCaptureModal';
+import { BiometricScannerModal } from './BiometricScannerModal';
 import {
   Calendar,
   Printer,
@@ -16,7 +18,12 @@ import {
   Search,
   X,
   AlertTriangle,
-  Clock
+  Clock,
+  Camera,
+  Fingerprint,
+  Users,
+  Heart,
+  Baby,
 } from 'lucide-react';
 import { LOGO_URL } from '../assets/logo';
 
@@ -34,6 +41,26 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
   const [isGenerating, setIsGenerating] = useState(false);
   const [recentPasses, setRecentPasses] = useState<Pass[]>([]);
   const [pricingRates, setPricingRates] = useState(() => dbService.getPricingRates());
+
+  // Family details & members
+  const [maritalStatus, setMaritalStatus] = useState<'UNMARRIED' | 'MARRIED'>('UNMARRIED');
+  const [familyCount, setFamilyCount] = useState<number>(1);
+  const [childrenCount, setChildrenCount] = useState<number>(0);
+  const [members, setMembers] = useState<PassMember[]>([
+    {
+      id: 'mem-1',
+      name: '',
+      relation: 'Self',
+      photo_url: undefined,
+      biometric_id: undefined,
+      biometric_template: undefined,
+    },
+  ]);
+
+  // Modal controls
+  const [cameraModalOpen, setCameraModalOpen] = useState(false);
+  const [biometricModalOpen, setBiometricModalOpen] = useState(false);
+  const [activeMemberIdx, setActiveMemberIdx] = useState<number>(0);
 
   // Search filter for re-printing passes by Mobile number or Name
   const [searchQuery, setSearchQuery] = useState('');
@@ -227,6 +254,94 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
     });
   }, [recentPasses, cloudSearchResults, searchQuery]);
 
+  // Keep primary member name synced with holderName
+  useEffect(() => {
+    setMembers(prev => {
+      const updated = [...prev];
+      if (updated[0]) {
+        updated[0] = { ...updated[0], name: holderName.trim() };
+      }
+      return updated;
+    });
+  }, [holderName]);
+
+  // Sync members array size when familyCount changes
+  const handleFamilyCountChange = (newCount: number) => {
+    const validCount = Math.max(1, Math.min(10, newCount));
+    setFamilyCount(validCount);
+    setMembers(prev => {
+      const next: PassMember[] = [];
+      for (let i = 0; i < validCount; i++) {
+        if (prev[i]) {
+          next.push(prev[i]);
+        } else {
+          let defaultRelation = 'Family Member';
+          if (i === 1 && maritalStatus === 'MARRIED') defaultRelation = 'Spouse';
+          else if (i >= 2 && childrenCount > 0 && i - 2 < childrenCount) defaultRelation = 'Child';
+          next.push({
+            id: `mem-${Date.now()}-${i + 1}`,
+            name: '',
+            relation: defaultRelation,
+          });
+        }
+      }
+      return next;
+    });
+  };
+
+  const handleMaritalStatusChange = (status: 'UNMARRIED' | 'MARRIED') => {
+    setMaritalStatus(status);
+    if (status === 'UNMARRIED') {
+      setChildrenCount(0);
+      setMembers(prev => prev.map((m, idx) => idx === 1 && m.relation === 'Spouse' ? { ...m, relation: 'Family Member' } : m));
+    } else {
+      if (familyCount === 1) {
+        handleFamilyCountChange(2);
+      }
+    }
+  };
+
+  const handleChildrenCountChange = (newChildren: number) => {
+    const valid = Math.max(0, Math.min(8, newChildren));
+    setChildrenCount(valid);
+    const minNeeded = 1 + (maritalStatus === 'MARRIED' ? 1 : 0) + valid;
+    if (familyCount < minNeeded) {
+      handleFamilyCountChange(minNeeded);
+    }
+  };
+
+  const updateMember = (index: number, fields: Partial<PassMember>) => {
+    setMembers(prev => {
+      const updated = [...prev];
+      if (updated[index]) {
+        updated[index] = { ...updated[index], ...fields };
+      }
+      return updated;
+    });
+  };
+
+  // Check completion status for members
+  const membersValidation = useMemo(() => {
+    const missing: string[] = [];
+    members.forEach((m, idx) => {
+      const label = `Member ${idx + 1} (${m.name || m.relation || 'Member'})`;
+      if (!m.name && idx > 0) {
+        missing.push(`${label}: Name is required`);
+      }
+      if (!m.photo_url) {
+        missing.push(`${label}: Live Photo is required`);
+      }
+      if (!m.biometric_id) {
+        missing.push(`${label}: Fingerprint Biometric is required`);
+      }
+    });
+    return {
+      isValid: missing.length === 0,
+      missingCount: missing.length,
+      errors: missing,
+    };
+  }, [members]);
+
   const handleGeneratePass = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!holderName.trim()) {
@@ -258,16 +373,42 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
       return;
     }
 
+    // Biometric & Photo validation
+    if (!members[0]?.photo_url) {
+      setActiveMemberIdx(0);
+      setCameraModalOpen(true);
+      alert('Live Photo Capture Required! Please take a photo of the pass holder.');
+      return;
+    }
+
+    if (!members[0]?.biometric_id) {
+      setActiveMemberIdx(0);
+      setBiometricModalOpen(true);
+      alert('Biometric Fingerprint Enrollment Required! Please scan the pass holder fingerprint.');
+      return;
+    }
+
+    if (!membersValidation.isValid) {
+      alert(`Please complete photo & biometric enrollment for all family members:\n\n• ${membersValidation.errors.join('\n• ')}`);
+      return;
+    }
+
     setIsGenerating(true);
     try {
       const pass = await dbService.issuePass({
         pass_type: passType,
         holder_name: holderName.trim(),
         holder_phone: cleanDigits,
-        people_allowed: 1,
+        people_allowed: familyCount,
         payment_method: paymentMode,
         duration_days: validityDays,
         price_paise: totalAmountInr * 100,
+        marital_status: maritalStatus,
+        family_members_count: familyCount,
+        children_count: childrenCount,
+        photo_url: members[0]?.photo_url,
+        biometric_id: members[0]?.biometric_id,
+        members: members,
       });
 
       onTicketGenerated(pass);
@@ -285,10 +426,19 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
       setHolderName('');
       setHolderPhone('');
       setExistingActivePass(null);
+      setFamilyCount(1);
+      setChildrenCount(0);
+      setMaritalStatus('UNMARRIED');
+      setMembers([{
+        id: 'mem-1',
+        name: '',
+        relation: 'Self',
+      }]);
+
       const durationLabel = passType === 'MONTHLY'
         ? (validityDays === 30 ? '1 Month (₹300)' : validityDays === 60 ? '2 Months (₹600)' : '3 Months (₹900)')
         : '1 Year (₹3,100)';
-      alert(`Success! ${passType === 'MONTHLY' ? 'Monthly Pass' : 'Yearly Pass'} [${durationLabel}] issued and sent to printer.`);
+      alert(`Success! ${passType === 'MONTHLY' ? 'Monthly Pass' : 'Yearly Pass'} [${durationLabel}] issued with ${familyCount} Person(s) Photo & Biometric enrolled.`);
     } catch (err: any) {
       console.error(err);
       alert(err.message || 'Failed to issue pass. Please check your connection.');
@@ -513,6 +663,259 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
               </div>
             )}
 
+            {/* Family Details & Marital Status */}
+            <div className="bg-gradient-to-r from-emerald-50/70 via-teal-50/50 to-emerald-50/70 p-3 rounded-xl border border-emerald-200/80 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] uppercase tracking-wider text-emerald-950 font-black flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>Family & Marital Status</span>
+                </span>
+                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-300/70">
+                  {familyCount} Person{familyCount > 1 ? 's' : ''} on Pass
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {/* Marital Status Toggle */}
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-slate-700 font-bold mb-1 flex items-center gap-1">
+                    <Heart className="w-3 h-3 text-pink-600" />
+                    <span>Marital Status</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => handleMaritalStatusChange('UNMARRIED')}
+                      className={`py-1.5 px-1 rounded-lg text-[11px] font-black transition-all cursor-pointer text-center ${
+                        maritalStatus === 'UNMARRIED'
+                          ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      }`}
+                    >
+                      Unmarried
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleMaritalStatusChange('MARRIED')}
+                      className={`py-1.5 px-1 rounded-lg text-[11px] font-black transition-all cursor-pointer text-center ${
+                        maritalStatus === 'MARRIED'
+                          ? 'bg-gradient-to-r from-pink-600 to-rose-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      }`}
+                    >
+                      Married
+                    </button>
+                  </div>
+                </div>
+
+                {/* Number of Persons in Family */}
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-slate-700 font-bold mb-1 flex items-center gap-1">
+                    <Users className="w-3 h-3 text-emerald-600" />
+                    <span>Family Persons</span>
+                  </label>
+                  <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 shadow-2xs">
+                    <button
+                      type="button"
+                      disabled={familyCount <= 1}
+                      onClick={() => handleFamilyCountChange(familyCount - 1)}
+                      className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-black flex items-center justify-center disabled:opacity-40 cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <div className="flex-1 text-center font-black text-slate-900 text-xs sm:text-sm">
+                      {familyCount}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={familyCount >= 10}
+                      onClick={() => handleFamilyCountChange(familyCount + 1)}
+                      className="w-7 h-7 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-black flex items-center justify-center disabled:opacity-40 cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {/* Number of Children */}
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wider text-slate-700 font-bold mb-1 flex items-center gap-1">
+                    <Baby className="w-3 h-3 text-indigo-600" />
+                    <span>Children Count</span>
+                  </label>
+                  <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 shadow-2xs">
+                    <button
+                      type="button"
+                      disabled={maritalStatus === 'UNMARRIED' || childrenCount <= 0}
+                      onClick={() => handleChildrenCountChange(childrenCount - 1)}
+                      className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-black flex items-center justify-center disabled:opacity-40 cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <div className={`flex-1 text-center font-black text-xs sm:text-sm ${maritalStatus === 'UNMARRIED' ? 'text-slate-400' : 'text-slate-900'}`}>
+                      {maritalStatus === 'UNMARRIED' ? 0 : childrenCount}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={maritalStatus === 'UNMARRIED' || childrenCount >= 8}
+                      onClick={() => handleChildrenCountChange(childrenCount + 1)}
+                      className="w-7 h-7 rounded-lg bg-indigo-100 hover:bg-indigo-200 text-indigo-800 font-black flex items-center justify-center disabled:opacity-40 cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Member Enrollment Cards (Photo & Biometrics) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] uppercase tracking-wider text-slate-800 font-black flex items-center gap-1.5">
+                  <Fingerprint className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Member Photo & Biometric Registration</span>
+                </label>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  membersValidation.isValid
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                    : 'bg-amber-100 text-amber-900 border-amber-300'
+                }`}>
+                  {membersValidation.isValid ? '✓ All Enrolled' : `${membersValidation.missingCount} Step(s) Pending`}
+                </span>
+              </div>
+
+              <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                {members.map((member, idx) => {
+                  const isPrimary = idx === 0;
+                  const hasPhoto = !!member.photo_url;
+                  const hasBio = !!member.biometric_id;
+
+                  return (
+                    <div
+                      key={member.id || idx}
+                      className={`p-2.5 rounded-xl border transition-all ${
+                        hasPhoto && hasBio
+                          ? 'bg-emerald-50/40 border-emerald-300/80 shadow-xs'
+                          : 'bg-white border-slate-200 shadow-2xs'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+                        {/* Member Info */}
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {/* Photo Avatar / Capture Button */}
+                          <div className="relative shrink-0">
+                            {hasPhoto ? (
+                              <div className="relative group">
+                                <img
+                                  src={member.photo_url}
+                                  alt={member.name || `Member ${idx + 1}`}
+                                  className="w-10 h-10 rounded-xl object-cover border-2 border-emerald-500 shadow-xs"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveMemberIdx(idx);
+                                    setCameraModalOpen(true);
+                                  }}
+                                  className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px] shadow-xs cursor-pointer hover:bg-emerald-700"
+                                  title="Retake photo"
+                                >
+                                  📷
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveMemberIdx(idx);
+                                  setCameraModalOpen(true);
+                                }}
+                                className="w-10 h-10 rounded-xl border-2 border-dashed border-emerald-400 bg-emerald-50/60 hover:bg-emerald-100 text-emerald-800 flex flex-col items-center justify-center text-[9px] font-black cursor-pointer transition"
+                              >
+                                <Camera className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Photo</span>
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Member Name & Relation */}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                                {isPrimary ? 'Member 1 (Primary Holder)' : `Member ${idx + 1}`}
+                              </span>
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                                {member.relation}
+                              </span>
+                            </div>
+
+                            {isPrimary ? (
+                              <div className="text-xs font-black text-slate-900 truncate">
+                                {holderName || 'Enter Pass Holder Name above'}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1 mt-1">
+                                <input
+                                  type="text"
+                                  required
+                                  placeholder="Full Name *"
+                                  value={member.name}
+                                  onChange={e => updateMember(idx, { name: e.target.value })}
+                                  className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                />
+                                <select
+                                  value={member.relation}
+                                  onChange={e => updateMember(idx, { relation: e.target.value })}
+                                  className="px-1.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 shrink-0"
+                                >
+                                  <option value="Spouse">Spouse</option>
+                                  <option value="Child">Child</option>
+                                  <option value="Parent">Parent</option>
+                                  <option value="Sibling">Sibling</option>
+                                  <option value="Family Member">Other</option>
+                                </select>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action buttons: Photo & Biometric */}
+                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                          {/* Biometric Button */}
+                          {hasBio ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveMemberIdx(idx);
+                                setBiometricModalOpen(true);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] flex items-center gap-1 shadow-xs cursor-pointer transition"
+                              title="Re-enroll biometric"
+                            >
+                              <Fingerprint className="w-3 h-3" />
+                              <span>Finger Enrolled ✓</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveMemberIdx(idx);
+                                setBiometricModalOpen(true);
+                              }}
+                              className="px-2.5 py-1 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-[10px] flex items-center gap-1 cursor-pointer transition"
+                            >
+                              <Fingerprint className="w-3 h-3 text-amber-600" />
+                              <span>Scan Finger</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Validity Duration */}
             <div>
               <label className="block text-[11px] uppercase tracking-wider text-slate-700 font-black mb-1.5 flex items-center gap-1">
@@ -608,7 +1011,7 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                 <span>2 Visits / Day • 10-Min Scan Cooldown</span>
               </div>
               <span className="font-bold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200 text-[10px]">
-                1 Named Person
+                {familyCount} Person{familyCount > 1 ? 's' : ''} Allowed (Biometric)
               </span>
             </div>
 
@@ -637,7 +1040,11 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
                       ? 'Active Pass Exists'
                       : !phoneValidation.isValid
                         ? 'Enter 10-Digit Mobile'
-                        : 'Issue & Print Pass'}
+                        : !members[0]?.photo_url
+                          ? 'Capture Photo *'
+                          : !members[0]?.biometric_id
+                            ? 'Scan Fingerprint *'
+                            : 'Issue & Print Pass'}
                 </span>
               </button>
             </div>
@@ -822,6 +1229,37 @@ export const PassManager: React.FC<PassManagerProps> = ({ config, onTicketGenera
           </div>
         </div>
       </div>
+
+      {/* Live Camera Capture Modal */}
+      <CameraCaptureModal
+        isOpen={cameraModalOpen}
+        onClose={() => setCameraModalOpen(false)}
+        title={`Live Photo: ${members[activeMemberIdx]?.name || members[activeMemberIdx]?.relation || `Member ${activeMemberIdx + 1}`}`}
+        subtitle="Align face clearly inside oval frame & capture"
+        existingPhoto={members[activeMemberIdx]?.photo_url}
+        onPhotoCaptured={photoUrl => {
+          updateMember(activeMemberIdx, { photo_url: photoUrl });
+          setCameraModalOpen(false);
+        }}
+      />
+
+      {/* Biometric Fingerprint Scanner Modal */}
+      <BiometricScannerModal
+        isOpen={biometricModalOpen}
+        onClose={() => setBiometricModalOpen(false)}
+        mode="ENROLL"
+        memberName={members[activeMemberIdx]?.name || (activeMemberIdx === 0 ? holderName : `Member ${activeMemberIdx + 1}`)}
+        memberRelation={members[activeMemberIdx]?.relation || 'Self'}
+        memberIndex={activeMemberIdx + 1}
+        onEnrollSuccess={(bioId, template) => {
+          updateMember(activeMemberIdx, {
+            biometric_id: bioId,
+            biometric_template: template,
+            biometric_enrolled_at: new Date().toISOString(),
+          });
+          setBiometricModalOpen(false);
+        }}
+      />
     </div>
   );
 };
